@@ -12,8 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScheduleCard, TabItem, WorkerCard } from '../../../components/dashboard/boss_dashboard';
-import { SCHEDULES, WORKERS } from '../../../components/dashboard/data';
+import { ScheduleCard, TabItem, WorkerCard } from '../../../../components/dashboard/boss_dashboard';
+import { SCHEDULES, WORKERS } from '../../../../components/dashboard/data';
 import { styles } from './dashboard.styles';
 
 // ✨ 타입 정의 (가장 위에 둠)

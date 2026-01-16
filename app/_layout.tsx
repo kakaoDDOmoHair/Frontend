@@ -8,15 +8,17 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export const unstable_settings = {
   anchor: '(tabs)',
 };
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+      {/* 👇 모든 화면의 헤더를 일단 다 끕니다 */}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        {/* 모달은 제목이 필요할 수 있으니 그대로 둡니다 */}
+        <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true, title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
