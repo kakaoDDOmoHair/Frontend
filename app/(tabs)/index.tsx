@@ -1,1 +1,2 @@
-export { default } from './staff/(tabs)/dashboard';
+// app/(tabs)/index.tsx
+export { default } from './boss/dashboard';

@@ -175,3 +175,4 @@ export const styles = StyleSheet.create({
     elevation: 10,
   },
 });
+

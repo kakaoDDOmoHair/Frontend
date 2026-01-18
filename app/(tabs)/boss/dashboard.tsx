@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -12,11 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScheduleCard, TabItem, WorkerCard } from '../../../../components/dashboard/boss_dashboard';
-import { SCHEDULES, WORKERS } from '../../../../components/dashboard/data';
+import { ScheduleCard, TabItem, WorkerCard } from '../../../components/dashboard/boss_dashboard';
+import { SCHEDULES, WORKERS } from '../../../components/dashboard/data';
 import { styles } from './dashboard.styles';
 
-// ✨ 타입 정의 (가장 위에 둠)
+// 타입 정의
 interface TodoItem {
   id: number;
   text: string;
@@ -24,10 +25,12 @@ interface TodoItem {
 }
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const [todoText, setTodoText] = useState('');
-
-  // ✨ 1. 초기 상태를 빈 배열 []로 설정 (앱 껐다 켜면 초기화됨 = 매일 새로 시작)
   const [todoList, setTodoList] = useState<TodoItem[]>([]);
+  
+  // 알림 개수 (실제로는 서버에서 받아오거나 다른 state management 사용)
+  const [notificationCount, setNotificationCount] = useState(3); // 예시: 3개의 알림
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync('135155');
@@ -71,9 +74,36 @@ export default function DashboardScreen() {
         
         {/* 헤더 */}
         <View style={styles.header}>
-          <Image source={require('../../../assets/images/logo.png')} style={{ width: 75, height: 70 }} resizeMode="contain" />
-          <TouchableOpacity activeOpacity={0.7}>
+          <Image source={require('../../../assets/images/logo.png')} style={{ width: 90, height: 70 }} resizeMode="contain" />
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            onPress={() => router.push('/(tabs)/boss/notification')}
+            style={{ position: 'relative' }}
+          >
             <Ionicons name="notifications" size={24} color="#D1C4E9" />
+            {/* 알림 badge */}
+            {notificationCount > 0 && (
+              <View style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                backgroundColor: '#FF4444',
+                borderRadius: 10,
+                minWidth: 18,
+                height: 18,
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 4,
+              }}>
+                <Text style={{
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 'bold',
+                }}>
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -118,11 +148,10 @@ export default function DashboardScreen() {
           </ScrollView>
         </View>
 
-        {/* ✨ To Do List (수정됨) */}
+        {/* To Do List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>오늘의 To Do List</Text>
           
-          {/* ✨ 리스트가 비어있을 때 안내 문구 표시 */}
           {todoList.length === 0 ? (
             <View style={{ paddingVertical: 20, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#AFAFAF', fontSize: 15 }}>
@@ -130,7 +159,6 @@ export default function DashboardScreen() {
               </Text>
             </View>
           ) : (
-            // 리스트가 있으면 보여줌
             todoList.map((item) => (
               <TouchableOpacity 
                 key={item.id}
