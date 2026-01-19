@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScheduleDay, Worker } from './data';
+import { ScheduleDay, Worker } from './Data';
 
 // 1. 근무자 카드
 export const WorkerCard = ({ data }: { data: Worker }) => (

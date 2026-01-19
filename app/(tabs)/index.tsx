@@ -1,2 +1,3 @@
 // app/(tabs)/index.tsx
-export { default } from './boss/dashboard';
+export { default } from './boss/Dashboard';
+

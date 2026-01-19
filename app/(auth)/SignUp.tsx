@@ -3,7 +3,8 @@ import { CustomInput } from '@/components/common/CustomInput';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, Keyboard, Platform, Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './SignUp.styles';
+import { styles } from '../../styles/auth/SignUp';
+
 export default function SignUpScreen() {
   const router = useRouter();
   

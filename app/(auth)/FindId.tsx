@@ -3,7 +3,7 @@ import { CustomInput } from '@/components/common/CustomInput';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, Keyboard, Modal, Platform, Text, TouchableOpacity, View } from 'react-native';
-import { styles } from './FindId.styles';
+import { styles } from '../../styles/auth/FindId';
 
 export default function FindIdScreen() {
   const router = useRouter();

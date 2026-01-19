@@ -5,7 +5,8 @@ import { Alert, Image, Platform, Text, TouchableOpacity, View } from 'react-nati
 import { CustomButton } from '@/components/common/CustomButton';
 import { CustomInput } from '@/components/common/CustomInput';
 import { Ionicons } from '@expo/vector-icons';
-import { styles } from './Login.styles';
+import { styles } from '../../styles/auth/Login';
+
 
 export default function LoginScreen() {
   const router = useRouter();
