@@ -1,6 +1,5 @@
 import { Platform, StatusBar, StyleSheet } from 'react-native';
 
-// ✨ export const styles <- 이 부분이 꼭 있어야 다른 파일에서 가져올 수 있습니다!
 export const styles = StyleSheet.create({
   // 컨테이너
   container: {
@@ -175,3 +174,4 @@ export const styles = StyleSheet.create({
     elevation: 10,
   },
 });
+

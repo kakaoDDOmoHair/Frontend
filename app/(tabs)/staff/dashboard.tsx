@@ -16,8 +16,8 @@ import {
   View,
 } from 'react-native';
 
-import { ScheduleCard, TabItem } from '../../../../components/dashboard/boss_dashboard';
-import { SCHEDULES } from '../../../../components/dashboard/data';
+import { ScheduleCard, TabItem } from '../../../components/dashboard/boss_dashboard';
+import { SCHEDULES } from '../../../components/dashboard/data';
 import { styles } from './dashboard.styles';
 
 interface TodoItem {
@@ -185,7 +185,7 @@ export default function DashboardScreen() {
         
         {/* 헤더 */}
         <View style={styles.header}>
-          <Image source={require('../../../../assets/images/logo.png')} style={{ width: 75, height: 70 }} resizeMode="contain" />
+          <Image source={require('../../../assets/images/logo.png')} style={{ width: 75, height: 70 }} resizeMode="contain" />
           <TouchableOpacity activeOpacity={0.7}>
             <Ionicons name="notifications" size={24} color="#D1C4E9" />
           </TouchableOpacity>
