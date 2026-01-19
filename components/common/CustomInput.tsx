@@ -1,37 +1,57 @@
-import React from 'react';
-import { StyleSheet, TextInput, TextInputProps, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import React, { forwardRef } from "react";
+import { StyleSheet, TextInput, TextInputProps, View, ViewStyle } from "react-native";
 
-interface Props extends TextInputProps {
-  // TextInput이 기본적으로 가지는 모든 속성(placeholder 등)을 그대로 상속받습니다.
-  /* 추가 속성 필요 시 작성*/
+// 아이콘 이름의 타입을 Ionicons에서 제공하는 실제 이름들로 제한합니다.
+interface CustomInputProps extends TextInputProps {
+  icon?: keyof typeof Ionicons.glyphMap; 
+  style?: ViewStyle;
 }
 
-export const CustomInput = (props: Props) => {
-  return (
-    <View style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholderTextColor="#888"
-        autoCapitalize="none" // 첫 글자 자동 대문자 방지
-        {...props} // 부모가 전달한 value, onChangeText 등을 한 번에 적용합니다.
-      />
-    </View>
-  );
-};
+// forwardRef를 사용하여 부모(Registration)가 이 컴포넌트의 TextInput에 접근할 수 있게 합니다.
+export const CustomInput = forwardRef<TextInput, CustomInputProps>(
+  ({ icon, style, ...props }, ref) => {
+    return (
+      <View style={[styles.inputContainer, style]}>
+        <TextInput
+          ref={ref}
+          style={styles.input}
+          placeholderTextColor="#AFAFAF"
+          // 웹 환경에서 자동완성 기능을 끄려면 아래 속성을 추가할 수 있습니다.
+          autoCapitalize="none"
+          {...props}
+        />
+        {/* icon 프롭이 전달되었을 때만 Ionicons를 렌더링합니다. */}
+        {icon && (
+          <Ionicons 
+            name={icon} 
+            size={20} 
+            color="#6C5CE7" 
+            style={styles.icon} 
+          />
+        )}
+      </View>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 15,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+  inputContainer: {
+    backgroundColor: "#F7F7F7",
+    borderRadius: 10,
+    height: 50,
+    paddingHorizontal: 15,
+    flexDirection: "row", // 텍스트 입력창과 아이콘을 가로로 배치
+    alignItems: "center",
+    marginBottom: 10,
   },
   input: {
-    fontSize: 16,
-    color: '#000',
+    flex: 1, // 아이콘을 제외한 나머지 공간을 모두 차지
+    fontSize: 15,
+    color: "#000",
+    paddingVertical: 0, // Android에서 텍스트가 잘리는 현상 방지
+  },
+  icon: {
+    marginLeft: 10, // 입력창과 아이콘 사이의 간격
   },
 });

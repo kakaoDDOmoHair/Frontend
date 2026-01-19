@@ -13,9 +13,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScheduleCard, TabItem, WorkerCard } from '../../../components/dashboard/boss_dashboard';
-import { SCHEDULES, WORKERS } from '../../../components/dashboard/data';
-import { styles } from './dashboard.styles';
+import { ScheduleCard, TabItem, WorkerCard } from '../../../components/dashboard/BossDashboard';
+import { SCHEDULES, WORKERS } from '../../../components/dashboard/Data';
+import { styles } from '../../../styles/tabs/boss/Dashboard';
+
 
 // 타입 정의
 interface TodoItem {
@@ -77,7 +78,7 @@ export default function DashboardScreen() {
           <Image source={require('../../../assets/images/logo.png')} style={{ width: 90, height: 70 }} resizeMode="contain" />
           <TouchableOpacity 
             activeOpacity={0.7}
-            onPress={() => router.push('/(tabs)/boss/notification')}
+            onPress={() => router.push('/(tabs)/boss/Notification')}
             style={{ position: 'relative' }}
           >
             <Ionicons name="notifications" size={24} color="#D1C4E9" />

@@ -1,4 +1,3 @@
-// --- Types (타입 정의) ---
 export type Worker = {
   id: string;
   name: string;
@@ -16,13 +15,11 @@ export type ScheduleDay = {
   schedules: ScheduleItem[];
 };
 
-// --- Mock Data (가짜 데이터) ---
 export const WORKERS: Worker[] = [
   { id: '1', name: '김도홍', time: '09:00 ~ 현재', status: 'working' },
   { id: '2', name: '김도홍', time: '09:30 ~ 현재', status: 'late' },
   { id: '3', name: '김도홍', time: '09:00 ~ 현재', status: 'working' },
 ];
-
 export const SCHEDULES: ScheduleDay[] = [
   {
     day: '일요일',

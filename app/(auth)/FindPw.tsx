@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, Keyboard, Platform, TouchableOpacity, View } from 'react-native';
-import { styles } from './FindId.styles';
+import { styles } from '../../styles/auth/FindId';
+
 
 export default function FindPasswordScreen() {
   const router = useRouter();
