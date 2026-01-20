@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -16,27 +17,69 @@ import { styles } from '../../../styles/tabs/boss/Notification';
 
 export default function BossNotificationScreen() {
   const router = useRouter();
+  // 상태 관리를 위해 초기 데이터를 state로 관리합니다.
   const [notifications, setNotifications] = useState(INITIAL_DATA);
 
-  // 알림 클릭 시 읽음 처리
+  // 1. 알림 클릭 시 읽음 처리 (불변성 유지하며 업데이트)
   const handleNotificationPress = (id: number) => {
-    const target = INITIAL_DATA.find(n => n.id === id);
-    if (target) {
-      target.isRead = true;
-    }
-    setNotifications([...INITIAL_DATA]);
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
+    );
   };
 
-  // 카테고리별 필터링 (오늘, 어제, 이번 주)
+  // 2. [승인] 버튼 핸들러
+  const handleApprove = (id: number) => {
+    Alert.alert("승인 완료", "알바생에게 수정 요청 승인 알림을 보냈습니다.", [
+      {
+        text: "확인",
+        onPress: () => {
+          // 승인 후 리스트에서 제거하거나 상태를 변경할 수 있습니다.
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        },
+      },
+    ]);
+  };
+
+  // 3. [거절] 버튼 핸들러
+  const handleReject = (id: number) => {
+    Alert.alert("요청 거절", "정말 거절하시겠습니까?", [
+      { text: "취소", style: "cancel" },
+      {
+        text: "거절",
+        style: "destructive",
+        onPress: () => {
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        },
+      },
+    ]);
+  };
+
+  // 카테고리별 필터링 (useMemo를 사용해 성능 최적화)
   const todayNotifications = useMemo(() => 
     notifications.filter(n => n.category === '오늘'), [notifications]);
   const yesterdayNotifications = useMemo(() => 
     notifications.filter(n => n.category === '어제'), [notifications]);
   const thisWeekNotifications = useMemo(() => 
     notifications.filter(n => n.category === '이번 주'), [notifications]);
-  // '이전 알림' 기능: 오늘과 어제 이번 주 모든 알림 표시
-  const earlierNotifications = useMemo(() => 
-    notifications.filter((n) => n.category !== '오늘' && n.category !== '어제' && n.category !== '이번 주'), [notifications]);
+
+  // 공통 렌더링 함수
+  const renderNotificationSection = (title: string, data: typeof notifications) => {
+    if (data.length === 0) return null;
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>{title}</Text>
+        {data.map((n) => (
+          <BossNotificationItem 
+            key={n.id} 
+            data={n} 
+            onPress={() => handleNotificationPress(n.id)} 
+            onApprove={handleApprove} // 핸들러 전달
+            onReject={handleReject}   // 핸들러 전달
+          />
+        ))}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -44,59 +87,20 @@ export default function BossNotificationScreen() {
       
       {/* 헤더 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={26} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>알림 센터</Text>
-        <TouchableOpacity onPress={() => router.back()}>
-        </TouchableOpacity>
+        <View style={{ width: 26 }} /> {/* 좌우 균형을 위한 빈 공간 */}
       </View>
 
       <ScrollView 
         contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
       >
-        {/* 오늘 */}
-        {todayNotifications.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>오늘</Text>
-            {todayNotifications.map((n) => (
-              <BossNotificationItem 
-                key={n.id} 
-                data={n} 
-                onPress={() => handleNotificationPress(n.id)} 
-              />
-            ))}
-          </View>
-        )}
-
-        {/* 어제 */}
-        {yesterdayNotifications.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>어제</Text>
-            {yesterdayNotifications.map((n) => (
-              <BossNotificationItem 
-                key={n.id} 
-                data={n} 
-                onPress={() => handleNotificationPress(n.id)} 
-              />
-            ))}
-          </View>
-        )}
-
-        {/* 이번 주 (이미지 하단 승인/거절 버튼 포함 섹션) */}
-        {thisWeekNotifications.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>이번 주</Text>
-            {thisWeekNotifications.map((n) => (
-              <BossNotificationItem 
-                key={n.id} 
-                data={n} 
-                onPress={() => handleNotificationPress(n.id)} 
-              />
-            ))}
-          </View>
-        )}
+        {renderNotificationSection('오늘', todayNotifications)}
+        {renderNotificationSection('어제', yesterdayNotifications)}
+        {renderNotificationSection('이번 주', thisWeekNotifications)}
       </ScrollView>
     </SafeAreaView>
   );
