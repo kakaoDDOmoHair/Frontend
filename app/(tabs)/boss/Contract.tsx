@@ -3,16 +3,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 // 인터페이스가 정의된 경로를 확인해주세요.
 import { ContractData, CONTRACT_DATA as INITIAL_DATA } from '../../../components/contract/Data';
@@ -186,7 +186,7 @@ export default function ContractScreen() {
       {/* 헤더 */}
       <View style={styles.header}>
         <Image source={require('../../../assets/images/logo.png')} style={{ width: 90, height: 70 }} resizeMode="contain" />
-        <TouchableOpacity onPress={() => router.push('/(tabs)/boss/Notification')} style={{ position: 'relative' }}>
+        <TouchableOpacity onPress={() => router.push('./(tabs)/boss/Notification')} style={{ position: 'relative' }}>
           <Ionicons name="notifications" size={24} color="#D1C4E9" />
           {notificationCount > 0 && (
             <View style={styles.notificationBadge}>
