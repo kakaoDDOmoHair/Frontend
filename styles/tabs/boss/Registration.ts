@@ -74,17 +74,60 @@ export const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#EBE6FF",
+    borderColor: "rgba(224,213,255,0.6)",
     flex: 1,
     alignItems: "center",
   },
   tabInactive: { padding: 10, flex: 1, alignItems: "center" },
 
   submitButton: {
-    backgroundColor: "#EBE6FF",
+    backgroundColor: "rgba(224,213,255,0.6)",
+    width: 100,
     padding: 18,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 10,
+    alignSelf: "flex-end",
+    marginRight: 10,
+  },
+  submitButtonText: {
+    color: "#000",
+    fontSize: 15,
+    fontWeight: "bold",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12, // 요소 사이의 간격
+  },
+  payTypeContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#EEE",
+    borderStyle: "dashed", // 기획안 느낌을 위한 점선 테두리
+  },
+  payTypeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  activePayType: {
+    backgroundColor: "#FFF",
+    // 그림자 효과
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    elevation: 2,
+  },
+  payTypeText: {
+    fontSize: 14,
+    color: "#CCC",
+    fontWeight: "bold",
+  },
+  activePayTypeText: {
+    color: "rgba(224,213,255,0.6)", // 지운 님 앱 포인트 보라색
   },
 });
