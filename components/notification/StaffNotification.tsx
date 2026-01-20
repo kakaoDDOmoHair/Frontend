@@ -14,19 +14,16 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ data, onPres
       activeOpacity={0.8}
       onPress={onPress} // 터치 시 부모 컴포넌트의 handleNotificationPress 실행
     >
-      <View style={itemStyles.mainRow}>
-        {/* 왼쪽: 아이콘 + 카테고리 + 메시지 */}
-        <View style={itemStyles.contentContainer}>
-          <Text style={itemStyles.iconText}>{data.icon}</Text>
-          <Text style={itemStyles.categoryTag}>{data.name}</Text>
-          <Text style={itemStyles.messageText} numberOfLines={1}>
-            {data.message}
-          </Text>
-        </View>
-
-        {/* 오른쪽: 시간 */}
-        <Text style={itemStyles.timeText}>{data.time}</Text>
-      </View>
+        <View style={itemStyles.mainRow}>
+          <View style={itemStyles.contentContainer}>
+            <Text style={itemStyles.iconText}>{data.icon}</Text>
+            <Text style={itemStyles.categoryTag}>{data.name}</Text>
+            <Text style={itemStyles.messageText} numberOfLines={2}>
+              {data.message}
+            </Text>
+          </View>
+          <Text style={itemStyles.timeText}>{data.time}</Text>
+        </View> 
 
       {/* 읽지 않음 상태(!data.isRead)일 때만 빨간색 배지 표시 */}
       {!data.isRead && <View style={itemStyles.unreadBadge} />}
@@ -35,14 +32,25 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({ data, onPres
 };
 
 const itemStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
   card: {
     backgroundColor: '#F3F3F3', // 이미지의 연한 회색 배경
-    borderRadius: 10,           // 둥근 모서리
+    borderRadius: 15,           // 둥근 모서리
     paddingHorizontal: 16,
     paddingVertical: 18,
     marginHorizontal: 16,
-    marginBottom: 10,           // 카드 사이의 간격
+    marginBottom: 10,
     position: 'relative',       // 배지(unreadBadge) 배치를 위한 기준점
+    // 그림자 효과 추가 (iOS)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    // 그림자 효과 추가 (Android)
+    elevation: 2,
   },
   mainRow: {
     flexDirection: 'row',
@@ -56,35 +64,37 @@ const itemStyles = StyleSheet.create({
     paddingRight: 8,
   },
   iconText: {
-    fontSize: 15,
+    fontSize: 18,
     marginRight: 6,
   },
   categoryTag: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#9747FF', // 이미지의 시그니처 보라색
-    marginRight: 8,
+    marginRight: 15,
   },
   messageText: {
     fontSize: 15,
     color: '#000000',
-    fontWeight: '400',
-    marginLeft: 10,
+    fontWeight: '500',
     flex: 1,
+    lineHeight: 22,
   },
   timeText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#0000004D', // 이미지의 반투명 검정색
     minWidth: 45,
     textAlign: 'right',
+    marginTop: -3
+
   },
   unreadBadge: {
     position: 'absolute',
-    top: -2,    // 이미지처럼 카드 바깥쪽에 살짝 걸치게 배치
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF383C', // 읽지 않은 알림 강조 빨간색
+    top: -3,
+    right: -3,
+    width: 12,
+    height: 12,
+    borderRadius: 50,
+    backgroundColor: '#FF383C',
   },
 });
