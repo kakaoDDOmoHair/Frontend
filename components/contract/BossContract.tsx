@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, Text, TouchableOpacity, View } from 'react-native';
 import { styles } from '../../styles/tabs/boss/Contract';
-import { ContractData } from './Data';
+import { ContractData } from './BossData';
 
 interface BossContractProps {
   data: ContractData;
@@ -50,8 +50,8 @@ export const BossContract: React.FC<BossContractProps> = ({ data, onDelete }) =>
       <Text style={styles.cardTitle}>{data.name} ({data.location})</Text>
       
       <View style={styles.statusRow}>
-        {/* 두 번째 코드의 더 밝은 색상 반영 (#D3D3D3, #34C759) */}
-        <View style={[styles.statusDot, { backgroundColor: data.isResigned ? '#D3D3D3' : '#34C759' }]} />
+        {/* 두 번째 코드의 더 밝은 색상 반영 (#D3D3D3, #CB30E0) */}
+        <View style={[styles.statusDot, { backgroundColor: data.isResigned ? '#D3D3D3' : '#CB30E0' }]} />
         <Text style={styles.statusText}>{data.status} | {data.wage.toLocaleString()}원</Text>
       </View>
 
