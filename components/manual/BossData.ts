@@ -1,3 +1,4 @@
+// components/manual/BossData.ts
 export interface Step {
   stepNumber: number;
   title: string;

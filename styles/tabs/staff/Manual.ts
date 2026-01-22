@@ -1,3 +1,4 @@
+// styles/tabs/staff/Manual.ts
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({

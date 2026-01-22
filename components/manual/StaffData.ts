@@ -1,3 +1,4 @@
+// components/manual/StaffData.ts
 export interface ManualStep {
   stepNumber: number;
   title: string;
