@@ -1,15 +1,22 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-// 1. 타입을 StaffData가 아닌 BossData에서 가져와야 합니다.
 import { BossNotificationItemData } from './BossData';
 
 interface BossNotificationItemProps {
-  // 2. 타입을 BossNotificationItemData로 변경하여 속성을 일치시킵니다.
-  data: BossNotificationItemData; 
+  data: BossNotificationItemData;
   onPress: () => void;
+  // id가 number이므로 타입을 number로 수정합니다.
+  onApprove?: (id: number) => void; 
+  onReject?: (id: number) => void;
 }
 
-export const BossNotificationItem: React.FC<BossNotificationItemProps> = ({ data, onPress }) => {
+export const BossNotificationItem: React.FC<BossNotificationItemProps> = ({ 
+  data, 
+  onPress, 
+  onApprove, 
+  onReject 
+}) => {
+  
   return (
     <View style={itemStyles.container}>
       <TouchableOpacity 
@@ -28,25 +35,24 @@ export const BossNotificationItem: React.FC<BossNotificationItemProps> = ({ data
           <Text style={itemStyles.timeText}>{data.time}</Text>
         </View>
 
-        {/* 3. 승인/거절 버튼 추가 (BossData에 hasActions: true인 경우에만 표시) */}
+        {/* hasActions가 true일 때만 승인/거절 버튼 표시 */}
         {data.hasActions && (
           <View style={itemStyles.buttonRow}>
             <TouchableOpacity 
               style={itemStyles.actionButton} 
-              onPress={() => console.log('거절 클릭')}
+              onPress={() => onReject?.(data.id)}
             >
-              <Text style={[itemStyles.actionButtonText, { color: '#FF3B30' }]}>거절</Text>
+              <Text style={[itemStyles.actionButtonText, { color: '#FF383C' }]}>거절</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               style={itemStyles.actionButton}
-              onPress={() => console.log('승인 클릭')}
+              onPress={() => onApprove?.(data.id)}
             >
-              <Text style={[itemStyles.actionButtonText, { color: '#007AFF' }]}>승인</Text>
+              <Text style={[itemStyles.actionButtonText, { color: '#0088FF' }]}>승인</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        {/* 안 읽음 표시 빨간 점 */}
         {!data.isRead && <View style={itemStyles.unreadBadge} />}
       </TouchableOpacity>
     </View>
@@ -60,10 +66,17 @@ const itemStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#F3F3F3',
-    borderRadius: 12,
+    borderRadius: 15, // 약간 더 부드러운 곡선
     paddingHorizontal: 16,
     paddingVertical: 18,
     position: 'relative',
+    // 그림자 효과 추가 (iOS)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    // 그림자 효과 추가 (Android)
+    elevation: 2,
   },
   mainRow: {
     flexDirection: 'row',
@@ -76,56 +89,55 @@ const itemStyles = StyleSheet.create({
     flex: 1,
     paddingRight: 8,
   },
-  iconText: { fontSize: 15, marginRight: 6 },
+  iconText: { 
+    fontSize: 18, 
+    marginRight: 6, 
+  },
   categoryTag: {
     fontSize: 18,
     fontWeight: '700',
     color: '#9747FF',
-    marginRight: 8,
+    marginRight: 15,
   },
   messageText: {
     fontSize: 15,
-    color: '#000',
-    fontWeight: '400',
+    color: '#000000',
+    fontWeight: '500',
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   timeText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#0000004D',
     minWidth: 45,
     textAlign: 'right',
-    marginTop: 2,
+    marginTop: 10,
   },
-  // 버튼 레이아웃 스타일
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 12,
-    gap: 8,
+    marginTop: 15,
+    gap: 10,
   },
   actionButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#E0D5FF4D', // 버튼 테두리 추가로 더 깔끔하게
   },
   actionButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '400',
   },
   unreadBadge: {
     position: 'absolute',
-    top: 5,
-    right: 5,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -3,
+    right: -3,
+    width: 12,
+    height: 12,
+    borderRadius: 50,
     backgroundColor: '#FF383C',
   },
 });

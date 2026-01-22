@@ -14,8 +14,9 @@ export const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 25,
+    marginRight: 25,
+    fontWeight: '800',
     color: '#000',
   },
   scrollContent: {
@@ -25,11 +26,25 @@ export const styles = StyleSheet.create({
     marginTop: 10,
   },
   sectionHeader: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: '#000',
     paddingHorizontal: 20,
     marginTop: 20,
     marginBottom: 15,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+    opacity: 0.3,
+  },
+  emptyText: {
+    fontSize: 15,
+    color: '#AFAFAF',
   },
 });

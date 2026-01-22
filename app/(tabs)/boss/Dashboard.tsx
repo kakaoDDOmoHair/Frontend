@@ -78,7 +78,7 @@ export default function DashboardScreen() {
           <Image source={require('../../../assets/images/logo.png')} style={{ width: 90, height: 70 }} resizeMode="contain" />
           <TouchableOpacity 
             activeOpacity={0.7}
-            onPress={() => router.push('/(tabs)/boss/Notification')}
+            onPress={() => router.push('./(tabs)/boss/Notification')}
             style={{ position: 'relative' }}
           >
             <Ionicons name="notifications" size={24} color="#D1C4E9" />

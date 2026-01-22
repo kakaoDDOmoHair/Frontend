@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 
   // 데이터 및 컴포넌트 임포트
-  import { NOTIFICATIONS as INITIAL_DATA, NotificationItemData } from '../../../components/notification/StaffData';
+  import { BossNotificationItem } from '@/components/notification/BossNotification';
+import { NOTIFICATIONS as INITIAL_DATA, NotificationItemData } from '../../../components/notification/StaffData';
 import { NotificationItem } from '../../../components/notification/StaffNotification';
 import { styles } from '../../../styles/tabs/staff/Notification';
 
@@ -52,7 +53,7 @@ import { styles } from '../../../styles/tabs/staff/Notification';
             <Ionicons name="chevron-back" size={26} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>알림 센터</Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           </TouchableOpacity>
         </View>
 
@@ -63,7 +64,7 @@ import { styles } from '../../../styles/tabs/staff/Notification';
           {/* 오늘 섹션 */}
           {todayNotifications.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>오늘</Text>
+              <Text style={styles.sectionHeader}>오늘</Text>
               {todayNotifications.map((n) => (
                 <NotificationItem 
                   key={n.id} 
@@ -77,7 +78,7 @@ import { styles } from '../../../styles/tabs/staff/Notification';
           {/* 어제 섹션 */}
           {yesterdayNotifications.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>어제</Text>
+              <Text style={styles.sectionHeader}>어제</Text>
               {yesterdayNotifications.map((n) => (
                 <NotificationItem 
                   key={n.id} 
@@ -88,21 +89,21 @@ import { styles } from '../../../styles/tabs/staff/Notification';
             </View>
           )}
 
-          {/* 지난 알림 섹션 */}
-          {earlierNotifications.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>지난 알림</Text>
-              {earlierNotifications.map((n) => (
-                <NotificationItem 
-                  key={n.id} 
-                  data={n} 
-                  onPress={() => handleNotificationPress(n.id)} 
-                />
-              ))}
-            </View>
-          )}
-
-          {/* 알림이 아예 없을 때 */}
+        {/* 이번 주 (이미지 하단 승인/거절 버튼 포함 섹션) */}
+        {thisWeekNotifications.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>이번 주</Text>
+            {thisWeekNotifications.map((n) => (
+              <BossNotificationItem 
+                key={n.id} 
+                data={n} 
+                onPress={() => handleNotificationPress(n.id)} 
+              />
+            ))}
+          </View>
+        )}
+          
+        {/* 알림이 아예 없을 때 */}
           {notifications.length === 0 && (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔔</Text>

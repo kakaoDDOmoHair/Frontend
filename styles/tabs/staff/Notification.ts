@@ -14,23 +14,24 @@ export const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 25,
+    marginRight: 25,
+    fontWeight: '800',
     color: '#000',
   },
   scrollContent: {
-    paddingVertical: 8,
+    paddingBottom: 30,
   },
   section: {
-    marginBottom: 24,
+    marginTop: 10,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#8E8E93',
+  sectionHeader: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
     paddingHorizontal: 20,
-    marginBottom: 8,
-    marginTop: 8,
+    marginTop: 20,
+    marginBottom: 15,
   },
   emptyContainer: {
     alignItems: 'center',
