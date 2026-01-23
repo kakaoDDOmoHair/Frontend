@@ -55,7 +55,7 @@ export default function FindIdScreen() {
         console.error("발송 에러:", error.response?.data);
         showAlert("메일 발송에 실패했습니다.");
       }
-      return; // 발송 후 함수 종료
+      return;
     }
 
     // 2단계: 인증 확인 (isSent가 true일 때)

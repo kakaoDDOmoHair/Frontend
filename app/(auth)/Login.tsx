@@ -38,7 +38,7 @@ export default function LoginScreen() {
     if (Platform.OS === "web") {
       alert(message); // 웹 브라우저 환경
     } else {
-      Alert.alert("알림", message); // 모바일(iOS/Android) 환경
+      Alert.alert("알림", message);
     }
   };
 
@@ -71,6 +71,7 @@ export default function LoginScreen() {
     }
 
     // 4. 모든 검증 통과 시 백엔드 API 호출
+
     try {
       // 1. 요청 보내기 (Postman 확인 결과 필드명은 email입니다)
       const response = await api.post("/api/v1/auth/login", {
