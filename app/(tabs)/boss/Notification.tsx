@@ -1,19 +1,19 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
-import { BOSS_NOTIFICATIONS as INITIAL_DATA } from '../../../components/notification/BossData';
-import { BossNotificationItem } from '../../../components/notification/BossNotification';
-import { styles } from '../../../styles/tabs/boss/Notification';
+import { BOSS_NOTIFICATIONS as INITIAL_DATA } from "../../../components/notification/BossData";
+import { BossNotificationItem } from "../../../components/notification/BossNotification";
+import { styles } from "../../../styles/tabs/boss/Notification";
 
 export default function BossNotificationScreen() {
   const router = useRouter();
@@ -22,8 +22,8 @@ export default function BossNotificationScreen() {
 
   // 1. 알림 클릭 시 읽음 처리 (불변성 유지하며 업데이트)
   const handleNotificationPress = (id: number) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
   };
 
@@ -34,7 +34,7 @@ export default function BossNotificationScreen() {
         text: "확인",
         onPress: () => {
           // 승인 후 리스트에서 제거하거나 상태를 변경할 수 있습니다.
-          setNotifications(prev => prev.filter(n => n.id !== id));
+          setNotifications((prev) => prev.filter((n) => n.id !== id));
         },
       },
     ]);
@@ -48,33 +48,42 @@ export default function BossNotificationScreen() {
         text: "거절",
         style: "destructive",
         onPress: () => {
-          setNotifications(prev => prev.filter(n => n.id !== id));
+          setNotifications((prev) => prev.filter((n) => n.id !== id));
         },
       },
     ]);
   };
 
   // 카테고리별 필터링 (useMemo를 사용해 성능 최적화)
-  const todayNotifications = useMemo(() => 
-    notifications.filter(n => n.category === '오늘'), [notifications]);
-  const yesterdayNotifications = useMemo(() => 
-    notifications.filter(n => n.category === '어제'), [notifications]);
-  const thisWeekNotifications = useMemo(() => 
-    notifications.filter(n => n.category === '이번 주'), [notifications]);
+  const todayNotifications = useMemo(
+    () => notifications.filter((n) => n.category === "오늘"),
+    [notifications],
+  );
+  const yesterdayNotifications = useMemo(
+    () => notifications.filter((n) => n.category === "어제"),
+    [notifications],
+  );
+  const thisWeekNotifications = useMemo(
+    () => notifications.filter((n) => n.category === "이번 주"),
+    [notifications],
+  );
 
   // 공통 렌더링 함수
-  const renderNotificationSection = (title: string, data: typeof notifications) => {
+  const renderNotificationSection = (
+    title: string,
+    data: typeof notifications,
+  ) => {
     if (data.length === 0) return null;
     return (
       <View style={styles.section}>
         <Text style={styles.sectionHeader}>{title}</Text>
         {data.map((n) => (
-          <BossNotificationItem 
-            key={n.id} 
-            data={n} 
-            onPress={() => handleNotificationPress(n.id)} 
+          <BossNotificationItem
+            key={n.id}
+            data={n}
+            onPress={() => handleNotificationPress(n.id)}
             onApprove={handleApprove} // 핸들러 전달
-            onReject={handleReject}   // 핸들러 전달
+            onReject={handleReject} // 핸들러 전달
           />
         ))}
       </View>
@@ -84,7 +93,7 @@ export default function BossNotificationScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
@@ -94,13 +103,13 @@ export default function BossNotificationScreen() {
         <View style={{ width: 26 }} /> {/* 좌우 균형을 위한 빈 공간 */}
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {renderNotificationSection('오늘', todayNotifications)}
-        {renderNotificationSection('어제', yesterdayNotifications)}
-        {renderNotificationSection('이번 주', thisWeekNotifications)}
+        {renderNotificationSection("오늘", todayNotifications)}
+        {renderNotificationSection("어제", yesterdayNotifications)}
+        {renderNotificationSection("이번 주", thisWeekNotifications)}
       </ScrollView>
     </SafeAreaView>
   );
