@@ -31,8 +31,10 @@ export default function StoreRegistrationScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [wifiName, setWifiName] = useState("");
   const [openDate, setOpenDate] = useState("");
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const detailAddressRef = useRef<TextInput>(null);
-
+  const [isOpenDateVisible, setIsOpenDateVisible] = useState(false); // 개업일 모달
+  const [isSettlementVisible, setIsSettlementVisible] = useState(false); // 정산일 모달
   const [isBankModalVisible, setIsBankModalVisible] = useState(false);
   const [selectedBank, setSelectedBank] = useState({ name: "", code: "" });
   const [accountNumber, setAccountNumber] = useState("");
@@ -131,12 +133,18 @@ export default function StoreRegistrationScreen() {
   };
 
   // 5. 주소 검색 처리
+  // handleAddressSelect를 아래와 같이 수정
   const handleAddressSelect = (selectedAddr: string) => {
-    setAddress(selectedAddr);
-    setIsModalVisible(false);
-    setTimeout(() => detailAddressRef.current?.focus(), 500);
-  };
+    if (!selectedAddr) return; // 주소가 없으면 중단
 
+    setAddress(selectedAddr); // 주소 먼저 저장
+    setIsModalVisible(false); // 모달 닫기
+
+    // 모달이 닫히는 애니메이션 시간을 고려해 포커스 이동
+    setTimeout(() => {
+      detailAddressRef.current?.focus();
+    }, 100);
+  };
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -172,7 +180,27 @@ export default function StoreRegistrationScreen() {
           />
 
           <Text style={styles.label}>개업 연월일</Text>
-          <CustomDatePicker value={openDate} onDateChange={setOpenDate} />
+          <TouchableOpacity onPress={() => setIsDatePickerVisible(true)}>
+            <View pointerEvents="none">
+              <CustomInput
+                placeholder="YYYY-MM-DD"
+                value={openDate}
+                icon="calendar-outline" // 달력 아이콘 표시
+                editable={false} // 직접 타이핑 방지
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* 날짜 선택 모달 */}
+          <CustomDatePicker
+            visible={isDatePickerVisible} // 모달 표시 여부 전달
+            value={openDate}
+            onDateChange={(date) => {
+              setOpenDate(date);
+              setIsDatePickerVisible(false); // 날짜 선택 시 자동으로 닫기
+            }}
+            onClose={() => setIsDatePickerVisible(false)} // 닫기 버튼이나 배경 클릭 시
+          />
 
           <Text style={styles.label}>사업자 유형 선택</Text>
           <View style={styles.radioGroup}>
@@ -277,9 +305,25 @@ export default function StoreRegistrationScreen() {
               </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
+              <TouchableOpacity onPress={() => setIsSettlementVisible(true)}>
+                <View pointerEvents="none">
+                  <CustomInput
+                    placeholder="YYYY-MM-DD"
+                    value={settlementDate}
+                    icon="calendar-outline"
+                    editable={false}
+                  />
+                </View>
+              </TouchableOpacity>
+
               <CustomDatePicker
+                visible={isSettlementVisible}
                 value={settlementDate}
-                onDateChange={setSettlementDate}
+                onDateChange={(date) => {
+                  setSettlementDate(date);
+                  setIsSettlementVisible(false);
+                }}
+                onClose={() => setIsSettlementVisible(false)} // 에러 해결 포인트!
               />
             </View>
           </View>
@@ -349,8 +393,8 @@ export default function StoreRegistrationScreen() {
       />
       <AddressSearchModal
         visible={isModalVisible}
+        onSelect={handleAddressSelect} // 이름이 일치하는지 확인
         onClose={() => setIsModalVisible(false)}
-        onSelect={handleAddressSelect}
       />
     </KeyboardAvoidingView>
   );
