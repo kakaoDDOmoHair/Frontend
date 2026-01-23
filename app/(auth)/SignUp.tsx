@@ -1,5 +1,6 @@
 import { CustomButton } from "@/components/common/CustomButton";
 import { CustomInput } from "@/components/common/CustomInput";
+import api from "@/constants/api";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -19,9 +20,11 @@ export default function SignUpScreen() {
   // 입력값 상태 관리
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"boss" | "staff" | null>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 웹/모바일 통합 알림 함수
   const showAlert = (message: string) => {
@@ -32,61 +35,68 @@ export default function SignUpScreen() {
     }
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     Keyboard.dismiss();
 
-    // 1. 아이디 입력 여부 확인
+    // --- 유효성 검사 (기존 로직) ---
     if (id.trim() === "") {
       showAlert("아이디를 입력해주세요.");
       return;
     }
-
-    // 2. 비밀번호 검사
+    if (name.trim() === "") {
+      showAlert("이름을 입력해주세요.");
+      return;
+    }
     if (password.trim() === "") {
       showAlert("비밀번호를 입력해주세요.");
       return;
     }
 
-    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-      showAlert("비밀번호는 영문, 숫자, 특수문자만 사용 가능합니다.");
+      showAlert("비밀번호는 영문, 숫자, 특수문자를 포함해야 합니다.");
       return;
     }
 
-    if (password.length < 8) {
-      showAlert("비밀번호는 최소 8자 이상이어야 합니다.");
-      return;
-    }
-
-    // 3. ✨ 이메일 유효성 검사 (정규표현식 수정)
-    // 네이버뿐만 아니라 모든 일반적인 이메일 형식을 허용합니다.
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
-    if (email.trim() === "") {
-      showAlert("이메일 주소를 입력해주세요.");
-      return;
-    }
-
     if (!emailRegex.test(email)) {
-      showAlert("올바른 이메일 형식이 아닙니다. (예: user@example.com)");
+      showAlert("올바른 이메일 형식이 아닙니다.");
       return;
     }
 
-    // 4. 역할 선택 확인
     if (!role) {
       showAlert("사장님 또는 아르바이트생을 선택해주세요.");
       return;
     }
 
-    // 모든 통과 시 가입 성공 로직
-    console.log(`${role === "boss" ? "사장님" : "아르바이트생"} 가입 정보:`, {
-      id,
-      email,
-    });
-    showAlert("회원가입이 완료되었습니다!");
-    router.replace("/(auth)/Login");
-  };
+    // ✅ 3. API 호출 로직 시작
+    try {
+      setIsLoading(true);
 
+      // 백엔드 엔드포인트와 필드명을 확인하세요.
+      // 보통 사장님/알바생 구분을 위해 role을 같이 보냅니다.
+      const response = await api.post("/api/v1/users/join", {
+        username: id, // 백엔드에서 요구하는 필드명으로 수정 (ex: loginId, email 등)
+        password: password,
+        name: name,
+        email: email,
+        role: role.toUpperCase(), // 보통 서버는 대문자(OWNER, STAFF)를 선호합니다.
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        showAlert("회원가입이 완료되었습니다!");
+        router.replace("/(auth)/Login");
+      }
+    } catch (error: any) {
+      console.error("회원가입 에러:", error.response?.data || error.message);
+      const errorMsg =
+        error.response?.data?.message || "서버 연결에 실패했습니다.";
+      showAlert(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <View style={styles.container}>
       <View style={styles.innerContainer}>
@@ -101,6 +111,12 @@ export default function SignUpScreen() {
         {/* 입력 영역 */}
         <View style={styles.inputContainer}>
           <CustomInput placeholder="아이디" value={id} onChangeText={setId} />
+          <CustomInput
+            placeholder="이름"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="none" // 영문 이름 입력 시 첫글자 대문자 방지
+          />
           <CustomInput
             placeholder="비밀번호"
             secureTextEntry

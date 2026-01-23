@@ -20,6 +20,7 @@ export default function WorkerRegistrationScreen() {
   const router = useRouter();
   const [notificationCount, setNotificationCount] = useState(5);
   const [userName, setUserName] = useState(""); // 이름
+  const [birthDate, setBirthDate] = useState(""); // 생년월일
   const [depositorName, setDepositorName] = useState(""); // 예금주명
   const [ownerName, setOwnerName] = useState(""); // 예금주명
   const [accountNumber, setAccountNumber] = useState(""); // 계좌번호
@@ -32,6 +33,7 @@ export default function WorkerRegistrationScreen() {
     // 1. 전송할 데이터 객체 생성 (명세서의 '입력 데이터' 양식과 일치시킴)
     const requestData = {
       ownerName: userName, // 이름 상태값
+      birthDate: birthDate, // 생년월일 상태값
       bankCode: selectedBank.code, // 선택된 은행 코드
       accountNumber: accountNumber, // 계좌번호 상태값
       verificationToken: verificationToken, // 인증 토큰
@@ -122,6 +124,16 @@ export default function WorkerRegistrationScreen() {
             value={userName}
             onChangeText={setUserName} // ✨ 이름 저장
             editable={!isVerified}
+          />
+
+          <Text style={styles.label}>생년월일</Text>
+          <CustomInput
+            placeholder="생년월일 6자리를 입력해 주세요. (예: 990101)"
+            keyboardType="number-pad" // 숫자 키패드 권장
+            value={birthDate} // 분리된 상태값 사용
+            maxLength={6} // 6자리로 제한
+            onChangeText={setBirthDate} // 상태 업데이트
+            editable={!isVerified} // 인증 후 수정 불가 여부는 기획에 따라 선택
           />
 
           <Text style={styles.label}>계좌번호</Text>

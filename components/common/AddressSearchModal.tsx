@@ -1,9 +1,16 @@
 import React from "react";
-import { Modal, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { WebView } from "react-native-webview";
 
 export const AddressSearchModal = ({ visible, onClose, onSelect }: any) => {
-  // 웹 환경에서는 모달을 렌더링하지 않음 (Registration.tsx에서 별도 처리함)
   if (Platform.OS === "web") return null;
 
   const kakaoAddressHtml = `
@@ -21,19 +28,35 @@ export const AddressSearchModal = ({ visible, onClose, onSelect }: any) => {
       <body>
         <div id="layer"></div>
         <script type="text/javascript">
+          var element_layer = document.getElementById('layer');
+          
           new daum.Postcode({
             oncomplete: function(data) {
-              window.ReactNativeWebView.postMessage(data.address);
+              var fullAddr = data.roadAddress || data.address;
+              
+              // 💡 에뮬레이터 통신 보장 로직
+              var sendData = function() {
+                if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                  window.ReactNativeWebView.postMessage(fullAddr);
+                } else {
+                  // 객체가 보일 때까지 0.1초마다 재시도
+                  setTimeout(sendData, 100);
+                }
+              };
+              sendData();
             },
             width : '100%',
             height : '100%'
-          }).embed(document.getElementById('layer'));
+          }).embed(element_layer);
         </script>
       </body>
     </html>
   `;
 
   const handleMessage = (event: any) => {
+    // 💡 에뮬레이터 Metro 터미널 창을 꼭 보세요!
+    console.log("🚀 [성공] 주소 데이터 수신:", event.nativeEvent.data);
+
     const addr = event.nativeEvent.data;
     if (addr && typeof addr === "string" && !addr.includes("webpack")) {
       onSelect(addr);
@@ -46,7 +69,10 @@ export const AddressSearchModal = ({ visible, onClose, onSelect }: any) => {
       <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>주소 검색</Text>
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          >
             <Text style={modalStyles.closeBtn}>닫기</Text>
           </TouchableOpacity>
         </View>
@@ -55,6 +81,11 @@ export const AddressSearchModal = ({ visible, onClose, onSelect }: any) => {
           onMessage={handleMessage}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          originWhitelist={["*"]}
+          // 💡 iOS 에뮬레이터 필수 설정
+          incognito={true} // 캐시 문제 방지
+          useWebKit={true}
+          onLoadEnd={() => console.log("✅ WebView 로딩 완료 (에뮬레이터)")}
         />
       </SafeAreaView>
     </Modal>
@@ -63,7 +94,7 @@ export const AddressSearchModal = ({ visible, onClose, onSelect }: any) => {
 
 const modalStyles = StyleSheet.create({
   header: {
-    height: 50,
+    height: 60,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -71,6 +102,6 @@ const modalStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  title: { fontSize: 16, fontWeight: "bold" },
-  closeBtn: { color: "#6C5CE7", fontWeight: "bold", padding: 10 },
+  title: { fontSize: 17, fontWeight: "bold" },
+  closeBtn: { color: "#6C5CE7", fontWeight: "bold", padding: 5 },
 });
