@@ -86,7 +86,12 @@ export default function SignUpScreen() {
 
       if (response.status === 200 || response.status === 201) {
         showAlert("회원가입이 완료되었습니다!");
-        router.replace("/(auth)/Login");
+        // ✅ 역할(role)에 따라 이동 경로 분기 처리
+        if (role === "boss") {
+          router.replace("/(tabs)/boss/Registration");
+        } else if (role === "staff") {
+          router.replace("/(tabs)/staff/Registration");
+        }
       }
     } catch (error: any) {
       console.error("회원가입 에러:", error.response?.data || error.message);
