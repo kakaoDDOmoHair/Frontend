@@ -1,7 +1,7 @@
 // Frontend/constants/api.ts
 import axios from "axios";
 
-// 💡 ngrok에서 받은 새로운 주소를 여기에 넣으세요.
+// 💡 ngrok에서 받은 새로운 주소를 여기에 넣으세요
 const BASE_URL = "https://queenliest-profamily-jarrett.ngrok-free.dev";
 
 const api = axios.create({
