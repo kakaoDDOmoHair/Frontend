@@ -10,7 +10,7 @@ import {
   Platform,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { styles } from "../../styles/auth/SignUp";
 
@@ -23,7 +23,7 @@ export default function SignUpScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
-  // ✅ 서버 Enum 기준에 맞춰 "OWNER" | "WORKER"로 변경
+  // 서버 Enum 기준에 맞춰 "OWNER" | "WORKER"로 변경
   const [role, setRole] = useState<"OWNER" | "WORKER" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
