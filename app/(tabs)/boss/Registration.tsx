@@ -3,7 +3,7 @@ import NetInfo from "@react-native-community/netinfo";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
-import api from "../../../constants/api"; // constants 폴더의 api 인스턴스
+import api from "../../../constants/api";
 
 import {
   Alert,
@@ -28,7 +28,7 @@ export default function StoreRegistrationScreen() {
   const router = useRouter();
 
   // 1. 상태 관리
-  const [businessNumber, setBusinessNumber] = useState("999-88-77777");
+  const [businessNumber, setBusinessNumber] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [storeName, setStoreName] = useState("");
   const [openDate, setOpenDate] = useState("");
@@ -41,14 +41,13 @@ export default function StoreRegistrationScreen() {
 
   const [salaryType, setSalaryType] = useState("월급");
   const [salaryDate, setSalaryDate] = useState("");
-  const [selectedBank, setSelectedBank] = useState({
-    name: "카카오뱅크",
-    code: "",
-  });
+
+  const [selectedBank, setSelectedBank] = useState({ name: "", code: "" });
   const [accountNumber, setAccountNumber] = useState("");
   const [depositorName, setDepositorName] = useState("");
 
   const [isVerified, setIsVerified] = useState(false);
+  const [verificationToken, setVerificationToken] = useState("");
   const [isAccountRegistered, setIsAccountRegistered] = useState(false);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -57,7 +56,6 @@ export default function StoreRegistrationScreen() {
     useState(false);
   const [isBankModalVisible, setIsBankModalVisible] = useState(false);
 
-  // 단계별 활성화 조건
   const isStep1Complete =
     ownerName !== "" && storeName !== "" && openDate !== "";
   const isStep2Complete = isStep1Complete && addr !== "" && wifiName !== "";
@@ -80,11 +78,6 @@ export default function StoreRegistrationScreen() {
         if (ssid && ssid !== "unknown") {
           setWifiName(ssid);
           Alert.alert("연결 성공", `현재 연결된 '${ssid}'를 가져왔습니다.`);
-        } else {
-          Alert.alert(
-            "인식 불가",
-            "설정에서 '정확한 위치' 권한이 켜져 있는지 확인해 주세요.",
-          );
         }
       }
     } catch (e) {
@@ -92,18 +85,59 @@ export default function StoreRegistrationScreen() {
     }
   };
 
-  // 3. 비즈니스 로직
-  const handleVerifyAccount = () => {
-    if (
-      !ownerName ||
-      !depositorName ||
-      ownerName.trim() !== depositorName.trim()
-    ) {
-      Alert.alert("오류", "대표자 성명과 예금주명이 일치해야 합니다.");
+  // 가짜 계좌 데이터 선등록 (테스트용)
+  const registerFakeAccount = async () => {
+    try {
+      await api.post("/api/v1/auth/test/register", {
+        bankName: selectedBank.name,
+        accountNumber: accountNumber,
+        ownerName: depositorName,
+      });
+      Alert.alert(
+        "테스트 데이터 등록",
+        "서버에 테스트 계좌가 등록되었습니다. 다시 인증합니다.",
+      );
+      handleVerifyAccount();
+    } catch (e) {
+      Alert.alert("오류", "테스트 데이터 등록에 실패했습니다.");
+    }
+  };
+
+  // 3. 계좌 실명 인증
+  const handleVerifyAccount = async () => {
+    if (!selectedBank.name || !accountNumber || !depositorName) {
+      Alert.alert("오류", "은행 정보와 계좌번호, 예금주명을 확인해주세요.");
       return;
     }
-    setIsVerified(true);
-    Alert.alert("성공", "계좌 실명 인증이 확인되었습니다.");
+
+    try {
+      const response = await api.post("/api/v1/auth/verify-account", {
+        bankName: selectedBank.name,
+        accountNumber: accountNumber,
+        ownerName: depositorName,
+      });
+
+      if (response.data && response.data.verificationToken) {
+        setVerificationToken(response.data.verificationToken);
+        setIsVerified(true);
+        Alert.alert("성공", "계좌 실명 인증이 완료되었습니다.");
+      }
+    } catch (error: any) {
+      const serverMsg = error.response?.data?.message || "";
+      if (serverMsg.includes("존재하지 않는")) {
+        Alert.alert(
+          "인증 실패",
+          "서버 가짜 DB에 없는 계좌입니다. 등록하시겠습니까?",
+          [
+            { text: "취소", style: "cancel" },
+            { text: "등록 후 인증", onPress: registerFakeAccount },
+          ],
+        );
+      } else {
+        Alert.alert("인증 실패", serverMsg || "서버와 연결할 수 없습니다.");
+      }
+      setIsVerified(false);
+    }
   };
 
   const handleRegisterAccountInfo = () => {
@@ -112,47 +146,43 @@ export default function StoreRegistrationScreen() {
       return;
     }
     setIsAccountRegistered(true);
-    Alert.alert("성공", "계좌 정보가 로컬에 등록되었습니다.");
+    Alert.alert("성공", "계좌 정보가 확인되었습니다.");
   };
 
-  // --- 💡 최종 API 연동 함수 (에러 해결 핵심 로직 반영) ---
+  // 4. 최종 매장 등록
   const handleSubmit = async () => {
     if (!isAccountRegistered) {
-      Alert.alert("알림", "계좌 정보 등록 버튼을 먼저 눌러주세요.");
+      Alert.alert("알림", "계좌 정보 확인을 완료해주세요.");
       return;
     }
 
-    // 🛠️ 날짜 형식 강제 변환: 서버는 점(.)이 포함된 2026.01.05 형식을 읽지 못함.
-    // 하이픈(-) 형식을 엄격히 유지해야 함 (예: 2026-01-05)
     const formattedOpenDate = openDate.replace(/\./g, "-");
     const payDayNumber = salaryDate ? parseInt(salaryDate.split("-")[2]) : 10;
 
     const requestBody = {
       userId: 1,
-      businessNumber: businessNumber,
-      ownerName: ownerName,
-      storeName: storeName,
+      businessNumber,
+      ownerName,
+      storeName,
       category: "카페",
       address: addr,
-      detailAddress: detailAddress,
-      openingDate: formattedOpenDate, // ⚠️ 하이픈(-) 필수
+      detailAddress,
+      openingDate: formattedOpenDate,
       storePhone: "064-123-4567",
-      wifiInfo: wifiName || "Jeju_Free_Wifi",
+      wifiInfo: wifiName || "Jeju_Wifi",
       payDay: payDayNumber,
-      payRule: salaryType === "월급" ? "MONTHLY" : "HOURLY", // Enum 대문자
+      payRule: salaryType === "월급" ? "MONTHLY" : "WEEKLY",
       bankName: selectedBank.name,
-      accountNumber: accountNumber,
-      inviteCode: "WELCOME2", // 💡 Postman 성공 필수값 추가
-      taxType: businessType === "일반" ? "GENERAL" : "SIMPLE", // Enum 대문자
-      verificationToken: "v_token_sample_2026", // ⚠️ 서버 DB와 일치해야 하는 유효 토큰
+      accountNumber,
+      inviteCode: "WELCOME2",
+      taxType: businessType === "일반" ? "GENERAL" : "SIMPLE",
+      verificationToken,
     };
 
     try {
-      console.log("전송 데이터:", requestBody);
       const response = await api.post("/api/v1/stores", requestBody);
-
       if (response.status === 200 || response.status === 201) {
-        Alert.alert("성공", String(response.data), [
+        Alert.alert("성공", "매장 등록이 완료되었습니다!", [
           {
             text: "확인",
             onPress: () => router.replace("/(tabs)/boss/Dashboard"),
@@ -160,20 +190,7 @@ export default function StoreRegistrationScreen() {
         ]);
       }
     } catch (error: any) {
-      // 💡 [object Object] 방지를 위해 상세 메시지 추출
-      const serverData = error.response?.data;
-      let errorMsg = "서버와 연결할 수 없습니다.";
-
-      if (serverData) {
-        // 서버가 에러 객체를 보낼 경우 message 필드를 찾거나 전체를 문자열화함
-        errorMsg =
-          typeof serverData === "object"
-            ? serverData.message || JSON.stringify(serverData)
-            : serverData;
-      }
-
-      console.error("서버 에러 상세:", serverData);
-      Alert.alert("등록 실패", `서버 메시지: ${errorMsg}`);
+      Alert.alert("등록 실패", error.response?.data?.message || "서버 오류");
     }
   };
 
@@ -198,11 +215,10 @@ export default function StoreRegistrationScreen() {
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* 기본 정보 섹션 */}
         <FormSection title="기본 정보">
-          <Text style={styles.label}>등록번호</Text>
+          <Text style={styles.label}>사업자 번호</Text>
           <CustomInput
-            placeholder="사업자 등록번호"
+            placeholder="사업자 번호"
             value={businessNumber}
             onChangeText={setBusinessNumber}
             keyboardType="number-pad"
@@ -215,7 +231,7 @@ export default function StoreRegistrationScreen() {
           />
           <Text style={styles.label}>매장명</Text>
           <CustomInput
-            placeholder="매장 이름"
+            placeholder="매장명"
             value={storeName}
             onChangeText={setStoreName}
           />
@@ -230,32 +246,8 @@ export default function StoreRegistrationScreen() {
               />
             </View>
           </TouchableOpacity>
-          <Text style={styles.label}>사업자 유형</Text>
-          <View style={{ flexDirection: "row", gap: 20, marginTop: 4 }}>
-            {["일반 과세자", "간이 과세자"].map((type) => (
-              <TouchableOpacity
-                key={type}
-                onPress={() =>
-                  setBusinessType(type.includes("일반") ? "일반" : "간이")
-                }
-                style={{ flexDirection: "row", alignItems: "center" }}
-              >
-                <Ionicons
-                  name={
-                    businessType === (type.includes("일반") ? "일반" : "간이")
-                      ? "radio-button-on"
-                      : "radio-button-off"
-                  }
-                  size={22}
-                  color="#6C5CE7"
-                />
-                <Text style={{ marginLeft: 6 }}>{type}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </FormSection>
 
-        {/* 매장 정보 섹션 */}
         <View
           style={{ opacity: isStep1Complete ? 1 : 0.4 }}
           pointerEvents={isStep1Complete ? "auto" : "none"}
@@ -263,28 +255,24 @@ export default function StoreRegistrationScreen() {
           <FormSection title="매장 정보">
             <View style={styles.rowInput}>
               <View style={{ flex: 1 }}>
-                <CustomInput
-                  placeholder="주소 검색"
-                  value={addr}
-                  editable={false}
-                />
+                <CustomInput placeholder="주소" value={addr} editable={false} />
               </View>
               <SideButton
-                title="주소 검색"
+                title="검색"
                 onPress={() => setIsModalVisible(true)}
               />
             </View>
             <CustomInput
               ref={detailAddressRef}
-              placeholder="상세 주소"
+              placeholder="상세주소"
               value={detailAddress}
               onChangeText={setDetailAddress}
             />
-            <Text style={styles.label}>매장 Wifi 설정</Text>
+            <Text style={styles.label}>매장 Wifi</Text>
             <View style={styles.rowInput}>
               <View style={{ flex: 1 }}>
                 <CustomInput
-                  placeholder="와이파이 입력"
+                  placeholder="와이파이"
                   value={wifiName}
                   onChangeText={setWifiName}
                 />
@@ -294,61 +282,24 @@ export default function StoreRegistrationScreen() {
           </FormSection>
         </View>
 
-        {/* 은행 및 정산 섹션 */}
         <View
           style={{ opacity: isStep2Complete ? 1 : 0.4 }}
           pointerEvents={isStep2Complete ? "auto" : "none"}
         >
           <FormSection title="은행 정보">
             <Text style={styles.label}>급여 정산일</Text>
-            <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  backgroundColor: "#F8F9FA",
-                  borderRadius: 10,
-                  padding: 4,
-                  width: 130,
-                }}
-              >
-                {["월급", "주급"].map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    onPress={() => setSalaryType(t)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 8,
-                      alignItems: "center",
-                      backgroundColor:
-                        salaryType === t ? "#FFF" : "transparent",
-                      borderRadius: 8,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: salaryType === t ? "#6C5CE7" : "#CCC",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            <TouchableOpacity
+              onPress={() => setIsSalaryDatePickerVisible(true)}
+            >
+              <View pointerEvents="none">
+                <CustomInput
+                  placeholder="날짜 선택"
+                  value={salaryDate}
+                  icon="calendar-outline"
+                  editable={false}
+                />
               </View>
-              <TouchableOpacity
-                style={{ flex: 1 }}
-                onPress={() => setIsSalaryDatePickerVisible(true)}
-              >
-                <View pointerEvents="none">
-                  <CustomInput
-                    placeholder="YYYY-MM-DD"
-                    value={salaryDate}
-                    icon="calendar-outline"
-                    editable={false}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
 
             <Text style={styles.label}>계좌 정보</Text>
             <TouchableOpacity
@@ -366,16 +317,22 @@ export default function StoreRegistrationScreen() {
             <CustomInput
               placeholder="계좌번호"
               value={accountNumber}
-              onChangeText={setAccountNumber}
+              onChangeText={(t) => {
+                setAccountNumber(t);
+                setIsVerified(false);
+              }}
               keyboardType="number-pad"
+              editable={!isVerified}
             />
-
             <View style={styles.rowInput}>
               <View style={{ flex: 1.5 }}>
                 <CustomInput
                   placeholder="예금주명"
                   value={depositorName}
-                  onChangeText={setDepositorName}
+                  onChangeText={(t) => {
+                    setDepositorName(t);
+                    setIsVerified(false);
+                  }}
                   editable={!isVerified}
                 />
               </View>
@@ -413,20 +370,18 @@ export default function StoreRegistrationScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* 모달 컴포넌트 */}
       <AddressSearchModal
         visible={isModalVisible}
-        onSelect={(data: any) => {
-          setAddr(typeof data === "string" ? data : data.address);
+        onSelect={(d: any) => {
+          setAddr(d.address || d);
           setIsModalVisible(false);
-          setTimeout(() => detailAddressRef.current?.focus(), 100);
         }}
         onClose={() => setIsModalVisible(false)}
       />
       <BankSelectModal
         visible={isBankModalVisible}
-        onSelect={(bank) => {
-          setSelectedBank(bank);
+        onSelect={(b) => {
+          setSelectedBank(b);
           setIsBankModalVisible(false);
         }}
         onClose={() => setIsBankModalVisible(false)}
