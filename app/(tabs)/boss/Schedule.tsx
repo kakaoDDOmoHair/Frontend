@@ -1,17 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios"; // axios 라이브러리 필요
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import CustomDatePicker from "../../../components/common/CustomDatePicker";
 import Footer from "../../../components/common/Footer";
@@ -30,13 +27,50 @@ interface Attendance {
 
 const AttendancePage: React.FC = () => {
   // --- 상태 관리 ---
-  const [loading, setLoading] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showEditCalendar, setShowEditCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState("2026-01-20");
-  const [breakTime, setBreakTime] = useState("30");
+  const [breakTime, setBreakTime] = useState("30"); // 초기값 설정
 
-  const [manualData, setManualData] = useState<Attendance[]>([]);
+  const [manualData, setManualData] = useState<Attendance[]>([
+    {
+      id: 1,
+      name: "Jun",
+      date: "2026-01-20",
+      time: "12:00 ~ 18:00",
+      breakTime: "30분",
+      status: "active",
+      isPlanned: false,
+    },
+    {
+      id: 2,
+      name: "Hong",
+      date: "2026-01-20",
+      time: "12:05 ~ 18:00",
+      breakTime: "60분",
+      status: "late",
+      isPlanned: false,
+    },
+    {
+      id: 3,
+      name: "Crong",
+      date: "2026-01-20",
+      time: "결근",
+      breakTime: "0분",
+      status: "absent",
+      isPlanned: false,
+    },
+    {
+      id: 4,
+      name: "Annie",
+      date: "2026-01-21",
+      time: "09:00 ~ 15:00",
+      breakTime: "30분",
+      status: "none",
+      isPlanned: true,
+    },
+  ]);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Attendance | null>(null);
   const [editForm, setEditForm] = useState({
@@ -47,85 +81,7 @@ const AttendancePage: React.FC = () => {
     isPlanned: false,
   });
 
-  const STORE_ID = 1; // 명세서 기준 storeId 고정 (필요시 동적으로 변경)
-
-  // --- API 1: 일별 근무 기록 조회 (GET) ---
-  const fetchAttendance = async (date: string) => {
-    try {
-      setLoading(true);
-      // 명세서: GET /api/v1/attendances/today?storeId=1
-      // 실제 서비스에서는 날짜 파라미터를 지원하는 엔드포인트를 사용하세요.
-      const response = await axios.get(`/api/v1/attendances/today`, {
-        params: { storeId: STORE_ID, date: date },
-      });
-
-      if (response.data.success && response.data.data) {
-        const mappedData = response.data.data.map((item: any) => ({
-          id: item.scheduleId,
-          name: item.employeeName || "이름 없음",
-          date: date,
-          time: `${item.startTime} ~ ${item.endTime}`,
-          breakTime: "30분",
-          status:
-            item.status === "ON"
-              ? "active"
-              : item.status === "LATE"
-                ? "late"
-                : "absent",
-          isPlanned: false,
-        }));
-        setManualData(mappedData);
-      } else {
-        // 데이터가 없는 경우 빈 배열 처리
-        setManualData([]);
-      }
-    } catch (error: any) {
-      console.error("데이터 로딩 에러 상세:", error.response || error);
-      // 연결 실패 시 사용자 알림 (선택 사항)
-      // Alert.alert("연결 오류", "서버 주소를 확인해주세요.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 날짜 변경 시 자동 호출
-  useEffect(() => {
-    fetchAttendance(selectedDate);
-  }, [selectedDate]);
-
-  // --- API 2: 근무 스케줄 수정 (PATCH) ---
-  const handleSaveEdit = async () => {
-    if (!selectedUser) return;
-
-    // 명세서 Request Body 형식: workDate, startTime, endTime
-    const payload = {
-      workDate: editForm.date,
-      startTime: editForm.start,
-      endTime: editForm.end,
-    };
-
-    try {
-      setLoading(true);
-      // 명세서: PATCH /api/v1/schedules/{scheduleId}
-      const response = await axios.patch(
-        `/api/v1/schedules/${selectedUser.id}`,
-        payload,
-      );
-
-      if (response.data.success) {
-        Alert.alert("알림", response.data.message); // "수정되었습니다."
-        setShowEditModal(false);
-        fetchAttendance(selectedDate); // 수정 후 현황 새로고침
-      }
-    } catch (error) {
-      console.error("수정 실패:", error);
-      Alert.alert("오류", "사장님 권한이 없거나 서버와 통신할 수 없습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- 유틸리티 로직 ---
+  // --- 로직 ---
   const weekDays = useMemo(() => {
     const current = new Date(selectedDate);
     const sunday = new Date(current);
@@ -160,52 +116,57 @@ const AttendancePage: React.FC = () => {
     setShowEditModal(true);
   };
 
+  const handleSaveEdit = () => {
+    if (!selectedUser) return;
+    const updatedData = manualData.map((item) =>
+      item.id === selectedUser.id
+        ? {
+            ...item,
+            date: editForm.date,
+            time: `${editForm.start} ~ ${editForm.end}`,
+            breakTime: `${editForm.breakTime}분`,
+            isPlanned: editForm.isPlanned,
+            status:
+              item.isPlanned && !editForm.isPlanned ? "active" : item.status,
+          }
+        : item,
+    );
+    setManualData(updatedData);
+    setShowEditModal(false);
+  };
+
   return (
     <View style={styles.container}>
       <Header notificationCount={5} />
 
+      {/* 1. 메인 스크롤 뷰: contentContainerStyle에 패딩을 넉넉히 주어 푸터에 가리지 않게 함 */}
       <ScrollView
         contentContainerStyle={[styles.scrollContainer, { paddingBottom: 150 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.sectionTitle}>아르바이트생 출퇴근 기록 확인</Text>
-
-        {loading && !showEditModal ? (
-          <ActivityIndicator
-            size="large"
-            color="#A28BFF"
-            style={{ marginVertical: 20 }}
-          />
-        ) : (
-          <View style={styles.sectionCard}>
-            {manualData.length > 0 ? (
-              manualData.map((item) => (
-                <View key={item.id} style={styles.infoRow}>
-                  <Text style={styles.userName}>{item.name}</Text>
-                  <Text style={styles.timeText}>{item.time}</Text>
-                  <View
-                    style={[
-                      styles.statusDot,
-                      {
-                        backgroundColor:
-                          item.status === "active"
-                            ? "#4ADE80"
-                            : item.status === "late"
-                              ? "#FACC15"
-                              : "#FB7185",
-                      },
-                    ]}
-                  />
-                </View>
-              ))
-            ) : (
-              <Text style={{ textAlign: "center", color: "#999" }}>
-                기록이 없습니다.
-              </Text>
-            )}
-          </View>
-        )}
+        <View style={styles.sectionCard}>
+          {manualData.map((item) => (
+            <View key={item.id} style={styles.infoRow}>
+              <Text style={styles.userName}>{item.name}</Text>
+              <Text style={styles.timeText}>{item.time}</Text>
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor:
+                      item.status === "active"
+                        ? "#4ADE80"
+                        : item.status === "late"
+                          ? "#FACC15"
+                          : "#FB7185",
+                  },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
 
         <View style={styles.titleRow}>
           <Text style={styles.sectionTitle}>근무 수정</Text>
@@ -218,7 +179,6 @@ const AttendancePage: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* 주간 탭 및 리스트 섹션 (기존 유지) */}
         <View style={styles.sectionCard}>
           <View style={styles.daysHeader}>
             {weekDays.map((item) => (
@@ -276,7 +236,6 @@ const AttendancePage: React.FC = () => {
           ))}
         </View>
 
-        {/* 캘린더 드롭다운 */}
         {showCalendar && (
           <View style={styles.fixedContainer}>
             <View style={styles.header}>
@@ -298,7 +257,7 @@ const AttendancePage: React.FC = () => {
         )}
       </ScrollView>
 
-      {/* 수정 모달 */}
+      {/* 2. 근무 수정 모달: 내부 ScrollView 추가 */}
       <Modal visible={showEditModal} transparent animationType="slide">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -309,12 +268,17 @@ const AttendancePage: React.FC = () => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 20 }}
             >
+              {/* 상단 헤더 */}
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
                   {selectedUser?.name} 근무 수정
                 </Text>
+                <View style={styles.userTag}>
+                  <Text style={styles.userTagText}>JUN</Text>
+                </View>
               </View>
 
+              {/* 1. 카테고리 탭 */}
               <View style={styles.categoryGroup}>
                 <TouchableOpacity
                   style={[
@@ -350,6 +314,7 @@ const AttendancePage: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
+              {/* 2. 근무 일자 */}
               <View style={styles.inputField}>
                 <Text style={styles.inputLabel}>근무 일자</Text>
                 <TouchableOpacity
@@ -361,25 +326,63 @@ const AttendancePage: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
+              {/* 3. 근무 시간 */}
               <View style={styles.inputField}>
                 <Text style={styles.inputLabel}>근무 시간</Text>
                 <View style={styles.timeInputRow}>
-                  <TextInput
-                    style={styles.timeInput}
-                    value={editForm.start}
-                    onChangeText={(t) => setEditForm({ ...editForm, start: t })}
-                    keyboardType="number-pad"
-                  />
+                  <View style={styles.timeInputItem}>
+                    <TextInput
+                      style={styles.timeInput}
+                      value={editForm.start}
+                      onChangeText={(t) =>
+                        setEditForm({ ...editForm, start: t })
+                      }
+                      keyboardType="number-pad"
+                    />
+                  </View>
                   <Text style={{ marginHorizontal: 10, color: "#999" }}>~</Text>
-                  <TextInput
-                    style={styles.timeInput}
-                    value={editForm.end}
-                    onChangeText={(t) => setEditForm({ ...editForm, end: t })}
-                    keyboardType="number-pad"
-                  />
+                  <View style={styles.timeInputItem}>
+                    <TextInput
+                      style={styles.timeInput}
+                      value={editForm.end}
+                      onChangeText={(t) => setEditForm({ ...editForm, end: t })}
+                      keyboardType="number-pad"
+                    />
+                  </View>
                 </View>
               </View>
 
+              {/* 4. 휴게 시간 (버튼 형태) */}
+              <View style={styles.inputField}>
+                <Text style={styles.inputLabel}>휴게 시간 (분)</Text>
+                <View style={styles.breakTimeGroup}>
+                  {["30", "60"].map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[
+                        styles.breakTimeBtn,
+                        breakTime === t && styles.breakTimeBtnActive,
+                      ]}
+                      onPress={() => {
+                        setBreakTime(t);
+                        setEditForm({ ...editForm, breakTime: t });
+                      }}
+                    >
+                      <Text
+                        style={
+                          breakTime === t
+                            ? { color: "white" }
+                            : { color: "#333" }
+                        }
+                      >
+                        {t}분
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* 하단 버튼 */}
               <View style={styles.modalBtnGroup}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
@@ -388,15 +391,10 @@ const AttendancePage: React.FC = () => {
                   <Text style={styles.cancelBtnText}>취소</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.submitBtn, loading && { opacity: 0.7 }]}
+                  style={styles.submitBtn}
                   onPress={handleSaveEdit}
-                  disabled={loading}
                 >
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.submitBtnText}>수정 완료</Text>
-                  )}
+                  <Text style={styles.submitBtnText}>수정 완료</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -404,7 +402,7 @@ const AttendancePage: React.FC = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* 날짜 선택 팝업 (모달 내부용) */}
+      {/* 날짜 선택 중앙 팝업 */}
       <Modal visible={showEditCalendar} transparent animationType="fade">
         <View style={styles.centerOverlay}>
           <View style={styles.centerModalContainer}>
@@ -419,15 +417,17 @@ const AttendancePage: React.FC = () => {
                 <Ionicons name="close" size={24} color="#999" />
               </TouchableOpacity>
             </View>
-            <CustomDatePicker
-              visible={true}
-              value={editForm.date}
-              onDateChange={(d: string) => {
-                setEditForm({ ...editForm, date: d });
-                setShowEditCalendar(false);
-              }}
-              onClose={() => setShowEditCalendar(false)}
-            />
+            <View style={{ paddingHorizontal: 10, paddingBottom: 20 }}>
+              <CustomDatePicker
+                visible={true}
+                value={editForm.date}
+                onDateChange={(d: string) => {
+                  setEditForm({ ...editForm, date: d });
+                  setShowEditCalendar(false);
+                }}
+                onClose={() => setShowEditCalendar(false)}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -436,5 +436,4 @@ const AttendancePage: React.FC = () => {
     </View>
   );
 };
-
 export default AttendancePage;

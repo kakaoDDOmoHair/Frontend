@@ -85,7 +85,6 @@ export default function LoginScreen() {
       if (result.accessToken) {
         await saveToken(result.accessToken);
         showAlert(`${result.name || username}님 환영합니다!`);
-
         router.replace("/(tabs)/boss/Dashboard");
       }
     } catch (error: any) {
