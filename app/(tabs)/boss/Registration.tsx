@@ -33,7 +33,6 @@ export default function StoreRegistrationScreen() {
   const [storeName, setStoreName] = useState("");
   const [openDate, setOpenDate] = useState("");
   const [businessType, setBusinessType] = useState("일반");
-
   const [addr, setAddr] = useState("제주특별자치도 제주시 첨단로 242");
   const [detailAddress, setDetailAddress] = useState("1층");
   const [wifiName, setWifiName] = useState("");
@@ -46,9 +45,9 @@ export default function StoreRegistrationScreen() {
   const [accountNumber, setAccountNumber] = useState("");
   const [depositorName, setDepositorName] = useState("");
 
-  const [isVerified, setIsVerified] = useState(false);
-  const [verificationToken, setVerificationToken] = useState("");
-  const [isAccountRegistered, setIsAccountRegistered] = useState(false);
+  const [isVerified, setIsVerified] = useState(false); // 실명 인증 여부
+  const [verificationToken, setVerificationToken] = useState(""); // 인증 토큰
+  const [isAccountRegistered, setIsAccountRegistered] = useState(false); // 최종 등록 여부
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
@@ -60,7 +59,11 @@ export default function StoreRegistrationScreen() {
     ownerName !== "" && storeName !== "" && openDate !== "";
   const isStep2Complete = isStep1Complete && addr !== "" && wifiName !== "";
 
-  // 2. 와이파이 불러오기
+  // ---------------------------------------------------------
+  // 2. 주요 기능 함수 (와이파이, 인증, 조회)
+  // ---------------------------------------------------------
+
+  // 와이파이 불러오기
   const fetchCurrentWifi = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -85,25 +88,7 @@ export default function StoreRegistrationScreen() {
     }
   };
 
-  // 가짜 계좌 데이터 선등록 (테스트용)
-  const registerFakeAccount = async () => {
-    try {
-      await api.post("/api/v1/auth/test/register", {
-        bankName: selectedBank.name,
-        accountNumber: accountNumber,
-        ownerName: depositorName,
-      });
-      Alert.alert(
-        "테스트 데이터 등록",
-        "서버에 테스트 계좌가 등록되었습니다. 다시 인증합니다.",
-      );
-      handleVerifyAccount();
-    } catch (e) {
-      Alert.alert("오류", "테스트 데이터 등록에 실패했습니다.");
-    }
-  };
-
-  // 3. 계좌 실명 인증
+  // 계좌 실명 인증
   const handleVerifyAccount = async () => {
     if (!selectedBank.name || !accountNumber || !depositorName) {
       Alert.alert("오류", "은행 정보와 계좌번호, 예금주명을 확인해주세요.");
@@ -124,10 +109,13 @@ export default function StoreRegistrationScreen() {
       }
     } catch (error: any) {
       const serverMsg = error.response?.data?.message || "";
-      if (serverMsg.includes("존재하지 않는")) {
+      if (
+        serverMsg.includes("존재하지 않는") ||
+        error.response?.status === 404
+      ) {
         Alert.alert(
           "인증 실패",
-          "서버 가짜 DB에 없는 계좌입니다. 등록하시겠습니까?",
+          "등록되지 않은 계좌입니다. 테스트 계좌로 등록하시겠습니까?",
           [
             { text: "취소", style: "cancel" },
             { text: "등록 후 인증", onPress: registerFakeAccount },
@@ -140,6 +128,21 @@ export default function StoreRegistrationScreen() {
     }
   };
 
+  // 테스트용 가짜 계좌 등록
+  const registerFakeAccount = async () => {
+    try {
+      await api.post("/api/v1/auth/test/register", {
+        bankName: selectedBank.name,
+        accountNumber: accountNumber,
+        ownerName: depositorName,
+      });
+      Alert.alert("성공", "테스트 계좌가 등록되었습니다. 다시 인증해 주세요.");
+      handleVerifyAccount();
+    } catch (e) {
+      Alert.alert("오류", "테스트 계좌 등록 실패");
+    }
+  };
+
   const handleRegisterAccountInfo = () => {
     if (!isVerified) {
       Alert.alert("알림", "계좌 인증을 먼저 완료해주세요.");
@@ -149,7 +152,32 @@ export default function StoreRegistrationScreen() {
     Alert.alert("성공", "계좌 정보가 확인되었습니다.");
   };
 
-  // 4. 최종 매장 등록
+  // 매장 상세 조회
+  const fetchStoreDetail = async (storeId: number) => {
+    try {
+      const response = await api.get(`/api/v1/stores/${storeId}`);
+      if (response.status === 200)
+        console.log("매장 상세 데이터:", response.data);
+    } catch (error: any) {
+      console.error("매장 조회 실패:", error.response?.data);
+    }
+  };
+
+  // 대시보드 통계 조회
+  const fetchDashboardStats = async (storeId: number) => {
+    try {
+      const response = await api.get("/api/v1/stores/dashboard", {
+        params: { storeId, year: 2026, month: 1 },
+      });
+      if (response.status === 200) console.log("통계 데이터:", response.data);
+    } catch (error: any) {
+      console.error("통계 조회 실패:", error.response?.data);
+    }
+  };
+
+  // ---------------------------------------------------------
+  // 3. 최종 매장 등록 제출
+  // ---------------------------------------------------------
   const handleSubmit = async () => {
     if (!isAccountRegistered) {
       Alert.alert("알림", "계좌 정보 확인을 완료해주세요.");
@@ -164,7 +192,7 @@ export default function StoreRegistrationScreen() {
       businessNumber,
       ownerName,
       storeName,
-      category: "카페",
+      category: "",
       address: addr,
       detailAddress,
       openingDate: formattedOpenDate,
@@ -182,6 +210,12 @@ export default function StoreRegistrationScreen() {
     try {
       const response = await api.post("/api/v1/stores", requestBody);
       if (response.status === 200 || response.status === 201) {
+        const newStoreId = response.data.storeId || 1;
+
+        // 가입 성공 후 데이터 동기화 (상세정보 & 통계)
+        await fetchStoreDetail(newStoreId);
+        await fetchDashboardStats(newStoreId);
+
         Alert.alert("성공", "매장 등록이 완료되었습니다!", [
           {
             text: "확인",
@@ -320,6 +354,7 @@ export default function StoreRegistrationScreen() {
               onChangeText={(t) => {
                 setAccountNumber(t);
                 setIsVerified(false);
+                setIsAccountRegistered(false);
               }}
               keyboardType="number-pad"
               editable={!isVerified}
@@ -332,6 +367,7 @@ export default function StoreRegistrationScreen() {
                   onChangeText={(t) => {
                     setDepositorName(t);
                     setIsVerified(false);
+                    setIsAccountRegistered(false);
                   }}
                   editable={!isVerified}
                 />
