@@ -1,6 +1,9 @@
+import api from "@/constants/api"; // ✅ Axios 인스턴스 사용
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   Text,
@@ -8,8 +11,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { Calendar } from "react-native-calendars";
 import CustomDatePicker from "../../../components/common/CustomDatePicker";
+import Footer from "../../../components/common/Footer";
 import Header from "../../../components/common/Header";
 import { styles } from "../../../styles/tabs/staff/Schedule";
 
@@ -26,55 +31,143 @@ interface WorkData {
 }
 
 const WorkerSchedule: React.FC = () => {
-  const activeTabName = "출퇴근관리";
-  const today = new Date().toISOString().split("T")[0]; // ✨ 1. 오늘 날짜 체크용
+  const STORE_ID = 1; // 실제 DB 매장 ID와 일치해야 함
+  const USER_ID = 2; // 실제 DB 사용자 ID와 일치해야 함
+  const today = new Date().toISOString().split("T")[0];
 
   // --- 상태 관리 ---
-  const [selectedDate, setSelectedDate] = useState("2026-01-21");
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showActionModal, setShowActionModal] = useState(false); // 근무 등록 모달
-  const [showDetailModal, setShowDetailModal] = useState(false); // ✨ 3. 상세 정보 모달
+  const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [workHistory, setWorkHistory] = useState<WorkData[]>([]);
 
-  // 입력 데이터 상태
+  // 모달 제어
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [requestModalVisible, setRequestModalVisible] = useState(false);
+
+  // 입력 데이터
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [breakTime, setBreakTime] = useState("");
+  const [reason, setReason] = useState("");
 
-  // 요청 모달 상태
+  // 메뉴 및 타입 설정
   const [showRequestMenu, setShowRequestMenu] = useState(false);
-  const [requestModalVisible, setRequestModalVisible] = useState(false);
   const [requestType, setRequestType] = useState<"수정" | "삭제">("수정");
   const [category, setCategory] = useState<"등록된 근무" | "기록된 근무">(
     "등록된 근무",
   );
-  const [reason, setReason] = useState("");
 
-  const [workHistory, setWorkHistory] = useState<WorkData[]>([
-    {
-      id: 1,
-      date: "2026-01-13",
-      startTime: "12:00",
-      endTime: "18:00",
-      breakTime: "30",
-      registeredTime: "12:00~18:00",
-      wifiTime: "14:00~18:00",
-      isPlanned: false,
-      storeName: "메가커피 제주연동점",
-    },
-    {
-      id: 2,
-      date: "2026-01-24",
-      startTime: "13:00",
-      endTime: "18:00",
-      breakTime: "30",
-      registeredTime: "12:00~18:00",
-      wifiTime: "",
-      isPlanned: true,
-      storeName: "메가커피 제주연동점",
-    },
-  ]);
+  // --- API 1: 월간 스케줄 조회 ---
+  const fetchMonthlySchedule = async (date: string) => {
+    try {
+      setLoading(true);
+      const [year, month] = date.split("-");
+      const response = await api.get(`/api/v1/schedules/monthly`, {
+        params: {
+          storeId: Number(STORE_ID),
+          year: Number(year),
+          month: Number(month),
+        },
+      });
 
-  // 시간 자동 포맷팅 (HH:mm)
+      let dataList = response.data.data || response.data || [];
+
+      // 테스트용 임시 데이터 (DB에 정보가 없을 때만 작동)
+      if (dataList.length === 0) {
+        dataList = [
+          {
+            userId: 2,
+            date: `${year}-${month}-26`,
+            name: "임스테스트",
+            time: "09:00~18:00",
+          },
+        ];
+      }
+
+      const mappedData = dataList.map((item: any) => ({
+        id: item.scheduleId || item.userId || Math.random(),
+        date: item.date,
+        startTime: item.time?.split("~")[0] || "09:00",
+        endTime: item.time?.split("~")[1] || "18:00",
+        registeredTime: item.time || "",
+        wifiTime: "",
+        isPlanned: new Date(item.date) > new Date(today),
+        storeName: item.name || "매장 정보 없음",
+        breakTime: "30",
+      }));
+      setWorkHistory(mappedData);
+    } catch (error) {
+      console.error("조회 실패:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMonthlySchedule(selectedDate);
+  }, [selectedDate.split("-")[1]]);
+
+  // --- API 2: 근무 스케줄 등록 ---
+  const handleSave = async () => {
+    if (!startTime || !endTime) {
+      Alert.alert("알림", "시간을 입력해주세요.");
+      return;
+    }
+    const payload = {
+      storeId: STORE_ID,
+      userId: USER_ID,
+      workDate: selectedDate,
+      startTime,
+      endTime,
+    };
+    try {
+      setLoading(true);
+      const response = await api.post(`/api/v1/schedules`, payload);
+      if (response.status === 200 || response.status === 201) {
+        Alert.alert("성공", "근무 스케줄이 등록되었습니다.");
+        setShowActionModal(false);
+        fetchMonthlySchedule(selectedDate);
+      }
+    } catch (error: any) {
+      Alert.alert("오류", error.response?.data?.message || "등록 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- API 3: 정정 요청 (수정/삭제) ---
+  const handleRequestSubmit = async () => {
+    if (!reason) {
+      Alert.alert("알림", "사유를 입력해주세요.");
+      return;
+    }
+    const payload = {
+      storeId: STORE_ID,
+      userId: USER_ID,
+      targetDate: selectedDate,
+      requestType: requestType === "수정" ? "UPDATE" : "DELETE",
+      category: category === "등록된 근무" ? "SCHEDULE" : "RECORD",
+      requestTime: `${startTime}~${endTime}`, // 수정/삭제 모두 현재 설정된 시간을 보냄
+      reason: reason,
+    };
+    try {
+      setLoading(true);
+      const response = await api.post(`/api/v1/modifications`, payload);
+      if (response.status === 200 || response.status === 201) {
+        Alert.alert("성공", `${requestType} 요청을 보냈습니다.`);
+        setRequestModalVisible(false);
+        setReason("");
+      }
+    } catch (error) {
+      Alert.alert("오류", "전송 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 유틸리티
   const formatTime = (text: string, setter: (val: string) => void) => {
     const cleaned = text.replace(/[^0-9]/g, "");
     let formatted = cleaned;
@@ -82,30 +175,6 @@ const WorkerSchedule: React.FC = () => {
       formatted = `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
     setter(formatted.slice(0, 5));
   };
-
-  // 근무 등록 저장
-  const handleSave = () => {
-    const newWork: WorkData = {
-      id: Date.now(),
-      date: selectedDate,
-      startTime,
-      endTime,
-      breakTime,
-      registeredTime: `${startTime}~${endTime}`,
-      wifiTime: "",
-      isPlanned: new Date(selectedDate) > new Date(today), // ✨ 오늘 이후면 예정
-      storeName: "",
-    };
-    setWorkHistory((prev) => {
-      const updatedList = [...prev, newWork];
-      return updatedList.sort(
-        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-      );
-    });
-    setShowActionModal(false);
-  };
-
-  // ✨ 2. 배지 상태별 색상 및 실제 근무 시간 계산
   const getBadgeInfo = (dateString: string) => {
     const data = workHistory.find((d) => d.date === dateString);
     if (!data) return null;
@@ -131,24 +200,20 @@ const WorkerSchedule: React.FC = () => {
     return { label: `${h}h ${m > 0 ? m + "m" : ""}`, color, bgColor };
   };
 
-  const selectedWorkDetail = workHistory.find((w) => w.date === selectedDate);
+  const selectedWorkDetail = useMemo(
+    () => workHistory.find((w) => w.date === selectedDate),
+    [workHistory, selectedDate],
+  );
 
   const shiftDate = (days: number) => {
     const currentDate = new Date(selectedDate);
     currentDate.setDate(currentDate.getDate() + days);
-
-    // yyyy-mm-dd 형식으로 변환하여 상태 업데이트
-    const year = currentDate.getFullYear();
-    const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-    const day = String(currentDate.getDate()).padStart(2, "0");
-
-    setSelectedDate(`${year}-${month}-${day}`);
+    setSelectedDate(currentDate.toISOString().split("T")[0]);
   };
 
   return (
     <View style={styles.container}>
       <Header notificationCount={5} />
-
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -201,31 +266,37 @@ const WorkerSchedule: React.FC = () => {
             <Text style={styles.columnLabel}>등록 시간</Text>
             <Text style={styles.columnLabel}>기록 시간</Text>
           </View>
-          {workHistory
-            .sort(
-              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-            )
-            .map((item) => (
-              <View key={item.id} style={styles.tableRow}>
-                <Text style={styles.dateCell}>
-                  {item.date.split("-")[1]}월 {item.date.split("-")[2]}일
-                </Text>
-                <Text style={styles.timeCell}>{item.registeredTime}</Text>
-                <Text
-                  style={[
-                    styles.timeCell,
-                    { color: getBadgeInfo(item.date)?.color },
-                  ]}
-                >
-                  {item.isPlanned ? "-" : item.wifiTime || "-"}
-                </Text>
-              </View>
-            ))}
+          {workHistory.length > 0 ? (
+            workHistory
+              .sort(
+                (a, b) =>
+                  new Date(a.date).getTime() - new Date(b.date).getTime(),
+              )
+              .map((item) => (
+                <View key={item.id} style={styles.tableRow}>
+                  <Text style={styles.dateCell}>
+                    {item.date.split("-")[1]}월 {item.date.split("-")[2]}일
+                  </Text>
+                  <Text style={styles.timeCell}>{item.registeredTime}</Text>
+                  <Text style={styles.timeCell}>
+                    {item.isPlanned ? "-" : item.wifiTime || "-"}
+                  </Text>
+                </View>
+              ))
+          ) : (
+            <Text style={{ textAlign: "center", padding: 20, color: "#999" }}>
+              기록이 없습니다.
+            </Text>
+          )}
         </View>
 
         <View style={styles.calendarWrapper}>
           <Calendar
             current={selectedDate}
+            onDayPress={(day: any) => {
+              setSelectedDate(day.dateString);
+              setShowDetailModal(true);
+            }}
             renderArrow={(direction) => (
               <Ionicons
                 name={direction === "left" ? "chevron-back" : "chevron-forward"}
@@ -238,19 +309,17 @@ const WorkerSchedule: React.FC = () => {
               arrowColor: "#E0D5FF",
               calendarBackground: "#F2F2F2",
               textMonthFontWeight: "bold",
-              textMonthFontSize: 20,
-              monthTextColor: "#333",
             }}
             style={{ borderRadius: 20 }}
             dayComponent={({ date }: any) => {
               const badge = getBadgeInfo(date.dateString);
-              const isToday = date.dateString === today; // ✨ 1. 오늘 날짜 체크
+              const isToday = date.dateString === today;
               return (
                 <TouchableOpacity
                   onPress={() => {
                     setSelectedDate(date.dateString);
                     setShowDetailModal(true);
-                  }} // ✨ 3. 상세 정보 오픈
+                  }}
                   style={[
                     styles.dayBox,
                     date.dateString === selectedDate && styles.selectedDay,
@@ -278,7 +347,7 @@ const WorkerSchedule: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* ✨ 3. 날짜 클릭 상세 정보 모달 */}
+      {/* 1. 근무 상세 모달 */}
       <Modal visible={showDetailModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -286,26 +355,21 @@ const WorkerSchedule: React.FC = () => {
               <TouchableOpacity onPress={() => shiftDate(-1)}>
                 <Ionicons name="chevron-back" size={24} color="#333" />
               </TouchableOpacity>
-
               <Text style={styles.modalTitle}>
                 {selectedDate.split("-")[1]}월 {selectedDate.split("-")[2]}일
                 근무
               </Text>
-
               <TouchableOpacity onPress={() => shiftDate(1)}>
                 <Ionicons name="chevron-forward" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-
             <View style={styles.detailInfoBox}>
-              {/* ✨ 매장명 표시: 데이터가 있으면 storeName을, 없으면 안내 문구를 표시 */}
               <Text style={styles.storeName}>
                 {selectedWorkDetail
                   ? selectedWorkDetail.storeName
                   : "매장 정보 없음"}
               </Text>
-
-              {selectedWorkDetail ? (
+              {selectedWorkDetail && (
                 <>
                   <Text style={styles.detailTimeText}>
                     {selectedWorkDetail.startTime} ~{" "}
@@ -314,24 +378,9 @@ const WorkerSchedule: React.FC = () => {
                   <Text style={styles.detailSubText}>
                     (휴게시간: {selectedWorkDetail.breakTime}분)
                   </Text>
-                  <View
-                    style={[
-                      styles.badge,
-                      { alignSelf: "center", marginTop: 10 },
-                    ]}
-                  >
-                    <Text style={styles.badgeText}>
-                      {getBadgeInfo(selectedDate)?.label}
-                    </Text>
-                  </View>
                 </>
-              ) : (
-                <Text style={styles.noWorkText}>
-                  해당 날짜에 근무 기록이 없습니다.
-                </Text>
               )}
             </View>
-
             <View style={styles.modalBtnGroup}>
               <TouchableOpacity
                 style={styles.cancelBtn}
@@ -353,7 +402,7 @@ const WorkerSchedule: React.FC = () => {
         </View>
       </Modal>
 
-      {/* 4. 근무 등록 모달 (근무 추가 연결) */}
+      {/* 2. 근무 등록 모달 */}
       <Modal visible={showActionModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -424,14 +473,18 @@ const WorkerSchedule: React.FC = () => {
                 <Text style={styles.cancelBtnText}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.submitBtn} onPress={handleSave}>
-                <Text style={styles.submitBtnText}>저장</Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>저장</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* 수정/삭제 요청 모달 */}
+      {/* 3. 수정/삭제 요청 모달 (통합) */}
       <Modal visible={requestModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -451,7 +504,9 @@ const WorkerSchedule: React.FC = () => {
                   ]}
                   onPress={() => setCategory(item as any)}
                 >
-                  <Text>{item}</Text>
+                  <Text style={category === item ? { color: "#fff" } : {}}>
+                    {item}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -465,39 +520,53 @@ const WorkerSchedule: React.FC = () => {
                 <Ionicons name="calendar-outline" size={20} color="#AAA" />
               </TouchableOpacity>
             </View>
+
+            {/* ✨ 수정/삭제 공통으로 시간 섹션 표시 */}
             <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>시간</Text>
+              <Text style={styles.inputLabel}>
+                {requestType === "수정" ? "변경 시간" : "삭제 대상 시간"}
+              </Text>
               <View style={styles.timeInputRow}>
                 <View style={styles.inputItem}>
                   <TextInput
-                    style={styles.timeInput}
+                    style={[
+                      styles.timeInput,
+                      requestType === "삭제" && { backgroundColor: "#F5F5F5" },
+                    ]}
                     value={startTime}
                     onChangeText={(t) => formatTime(t, setStartTime)}
                     keyboardType="number-pad"
                     maxLength={5}
-                    placeholder="12:00"
+                    placeholder="09:00"
+                    editable={requestType === "수정"} // 삭제일 때는 읽기 전용
                   />
                 </View>
-                <Text>~</Text>
+                <Text style={{ fontSize: 20 }}>~</Text>
                 <View style={styles.inputItem}>
                   <TextInput
-                    style={styles.timeInput}
+                    style={[
+                      styles.timeInput,
+                      requestType === "삭제" && { backgroundColor: "#F5F5F5" },
+                    ]}
                     value={endTime}
                     onChangeText={(t) => formatTime(t, setEndTime)}
                     keyboardType="number-pad"
                     maxLength={5}
                     placeholder="18:00"
+                    editable={requestType === "수정"} // 삭제일 때는 읽기 전용
                   />
                 </View>
               </View>
             </View>
+
             <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>이유</Text>
+              <Text style={styles.inputLabel}>사유</Text>
               <TextInput
                 style={styles.reasonInput}
                 value={reason}
                 onChangeText={setReason}
                 placeholder="사유를 입력해주세요"
+                multiline
               />
             </View>
             <View style={styles.modalBtnGroup}>
@@ -509,16 +578,19 @@ const WorkerSchedule: React.FC = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.submitBtn}
-                onPress={() => setRequestModalVisible(false)}
+                onPress={handleRequestSubmit}
               >
-                <Text style={styles.submitBtnText}>저장</Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>요청 보내기</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* 공통 날짜 선택 팝업 */}
       <CustomDatePicker
         visible={showCalendar}
         value={selectedDate}
@@ -528,6 +600,7 @@ const WorkerSchedule: React.FC = () => {
         }}
         onClose={() => setShowCalendar(false)}
       />
+      <Footer />
     </View>
   );
 };
