@@ -10,7 +10,7 @@ import {
   Platform,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { styles } from "../../styles/auth/SignUp";
 
@@ -22,8 +22,9 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"boss" | "staff" | null>(null);
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+
+  // ✅ 서버 Enum 기준에 맞춰 "OWNER" | "WORKER"로 변경
+  const [role, setRole] = useState<"OWNER" | "WORKER" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // 웹/모바일 통합 알림 함수
@@ -38,7 +39,7 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     Keyboard.dismiss();
 
-    // --- 유효성 검사 (기존 로직) ---
+    // --- 유효성 검사 ---
     if (id.trim() === "") {
       showAlert("아이디를 입력해주세요.");
       return;
@@ -70,26 +71,25 @@ export default function SignUpScreen() {
       return;
     }
 
-    // ✅ 3. API 호출 로직 시작
+    // --- API 호출 ---
     try {
       setIsLoading(true);
 
-      // 백엔드 엔드포인트와 필드명을 확인하세요.
-      // 보통 사장님/알바생 구분을 위해 role을 같이 보냅니다.
       const response = await api.post("/api/v1/users/join", {
-        username: id, // 백엔드에서 요구하는 필드명으로 수정 (ex: loginId, email 등)
+        username: id,
         password: password,
         name: name,
         email: email,
-        role: role.toUpperCase(), // 보통 서버는 대문자(OWNER, STAFF)를 선호합니다.
+        role: role, // ✅ "OWNER" 또는 "WORKER"가 그대로 전송됨
       });
 
       if (response.status === 200 || response.status === 201) {
         showAlert("회원가입이 완료되었습니다!");
-        // ✅ 역할(role)에 따라 이동 경로 분기 처리
-        if (role === "boss") {
+
+        // 역할에 따른 페이지 이동
+        if (role === "OWNER") {
           router.replace("/(tabs)/boss/Registration");
-        } else if (role === "staff") {
+        } else {
           router.replace("/(tabs)/staff/Registration");
         }
       }
@@ -102,6 +102,7 @@ export default function SignUpScreen() {
       setIsLoading(false);
     }
   };
+
   return (
     <View style={styles.container}>
       <View style={styles.innerContainer}>
@@ -120,7 +121,7 @@ export default function SignUpScreen() {
             placeholder="이름"
             value={name}
             onChangeText={setName}
-            autoCapitalize="none" // 영문 이름 입력 시 첫글자 대문자 방지
+            autoCapitalize="none"
           />
           <CustomInput
             placeholder="비밀번호"
@@ -141,14 +142,14 @@ export default function SignUpScreen() {
           <TouchableOpacity
             style={[
               styles.roleButton,
-              role === "boss" && styles.selectedRoleButton,
+              role === "OWNER" && styles.selectedRoleButton,
             ]}
-            onPress={() => setRole("boss")}
+            onPress={() => setRole("OWNER")}
           >
             <Text
               style={[
                 styles.roleButtonText,
-                role === "boss" && styles.selectedRoleButtonText,
+                role === "OWNER" && styles.selectedRoleButtonText,
               ]}
             >
               사장님
@@ -158,14 +159,14 @@ export default function SignUpScreen() {
           <TouchableOpacity
             style={[
               styles.roleButton,
-              role === "staff" && styles.selectedRoleButton,
+              role === "WORKER" && styles.selectedRoleButton,
             ]}
-            onPress={() => setRole("staff")}
+            onPress={() => setRole("WORKER")}
           >
             <Text
               style={[
                 styles.roleButtonText,
-                role === "staff" && styles.selectedRoleButtonText,
+                role === "WORKER" && styles.selectedRoleButtonText,
               ]}
             >
               아르바이트생
@@ -175,7 +176,12 @@ export default function SignUpScreen() {
 
         {/* 가입 버튼 */}
         <View style={styles.submitButtonContainer}>
-          <CustomButton title="가입하기" onPress={handleSignUp} />
+          <TouchableOpacity disabled={isLoading} onPress={handleSignUp}>
+            <CustomButton
+              title={isLoading ? "처리 중..." : "가입하기"}
+              onPress={handleSignUp}
+            />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
