@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../../../constants/api";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Alert,
   Image,
@@ -18,7 +19,6 @@ import { CustomInput } from "../../../components/common/CustomInput";
 import { FormSection } from "../../../components/common/FormSection";
 import { SideButton } from "../../../components/common/SideButton";
 import { styles } from "../../../styles/tabs/staff/Registration";
-
 export default function WorkerRegistrationScreen() {
   const router = useRouter();
   const [notificationCount, setNotificationCount] = useState(5);
@@ -30,7 +30,7 @@ export default function WorkerRegistrationScreen() {
   const [accountNumber, setAccountNumber] = useState("");
   const [depositorName, setDepositorName] = useState("");
   const [selectedBank, setSelectedBank] = useState({ name: "", code: "" });
-
+  const [userId, setUserId] = useState<number | null>(null);
   // 2. 인증 및 등록 상태 관리
   const [isVerified, setIsVerified] = useState(false);
   const [verificationToken, setVerificationToken] = useState("");
@@ -39,6 +39,22 @@ export default function WorkerRegistrationScreen() {
 
   // --- API 호출 함수 섹션 ---
 
+  useEffect(() => {
+    const loadUserId = async () => {
+      try {
+        const storedId = await AsyncStorage.getItem("userId");
+        if (storedId) {
+          setUserId(Number(storedId));
+        } else {
+          // [추가] 만약 userId가 없으면 로그인이 풀린 상태일 수 있음
+          console.warn("저장된 userId가 없습니다.");
+        }
+      } catch (e) {
+        console.error("userId 로드 에러:", e);
+      }
+    };
+    loadUserId();
+  }, []);
   /**
    * [GET] 매장 상세 조회
    * 가입 성공 후 매장의 이름, 위치, 급여 규칙 등을 미리 확인하기 위함
@@ -153,7 +169,7 @@ export default function WorkerRegistrationScreen() {
     }
 
     const requestBody = {
-      userId: 1, // 실제 환경에선 로그인된 유저 고유 ID 사용
+      userId: userId, // 실제 환경에선 로그인된 유저 고유 ID 사용
       inviteCode: inviteCode,
     };
 
@@ -171,6 +187,7 @@ export default function WorkerRegistrationScreen() {
             onPress: async () => {
               if (storeId) {
                 // 가입 성공 직후 매장 상세 및 통계를 미리 조회(초기화)
+                await AsyncStorage.setItem("storeId", storeId);
                 await fetchStoreDetail(storeId);
                 await fetchDashboardStats(storeId);
               }

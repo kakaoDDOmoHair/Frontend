@@ -1,16 +1,22 @@
-import api from "@/constants/api"; // ✅ Axios 인스턴스 사용
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
+import api from "../../../constants/api";
 
 import { Calendar } from "react-native-calendars";
 import CustomDatePicker from "../../../components/common/CustomDatePicker";
@@ -19,7 +25,7 @@ import Header from "../../../components/common/Header";
 import { styles } from "../../../styles/tabs/staff/Schedule";
 
 interface WorkData {
-  id: number;
+  id: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -31,173 +37,207 @@ interface WorkData {
 }
 
 const WorkerSchedule: React.FC = () => {
-  const STORE_ID = 1; // 실제 DB 매장 ID와 일치해야 함
-  const USER_ID = 2; // 실제 DB 사용자 ID와 일치해야 함
+  // 컴포넌트 내부 상단
+  const [storeId, setStoreId] = useState<number>(1);
   const today = new Date().toISOString().split("T")[0];
 
-  // --- 상태 관리 ---
   const [loading, setLoading] = useState(false);
+  const [userName, setUserName] = useState("");
   const [selectedDate, setSelectedDate] = useState(today);
   const [workHistory, setWorkHistory] = useState<WorkData[]>([]);
 
-  // 모달 제어
   const [showCalendar, setShowCalendar] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [requestModalVisible, setRequestModalVisible] = useState(false);
 
-  // 입력 데이터
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [breakTime, setBreakTime] = useState("");
+  const [breakTime, setBreakTime] = useState("30");
   const [reason, setReason] = useState("");
 
-  // 메뉴 및 타입 설정
   const [showRequestMenu, setShowRequestMenu] = useState(false);
   const [requestType, setRequestType] = useState<"수정" | "삭제">("수정");
   const [category, setCategory] = useState<"등록된 근무" | "기록된 근무">(
     "등록된 근무",
   );
 
-  // --- API 1: 월간 스케줄 조회 ---
-  const fetchMonthlySchedule = async (date: string) => {
+  const getPrivateApi = async () => {
+    let token = null;
+
     try {
-      setLoading(true);
-      const [year, month] = date.split("-");
-      const response = await api.get(`/api/v1/schedules/monthly`, {
-        params: {
-          storeId: Number(STORE_ID),
-          year: Number(year),
-          month: Number(month),
-        },
-      });
-
-      let dataList = response.data.data || response.data || [];
-
-      // 테스트용 임시 데이터 (DB에 정보가 없을 때만 작동)
-      if (dataList.length === 0) {
-        dataList = [
-          {
-            userId: 2,
-            date: `${year}-${month}-26`,
-            name: "임스테스트",
-            time: "09:00~18:00",
-          },
-        ];
+      if (Platform.OS === "web") {
+        token = localStorage.getItem("user_token");
+      } else {
+        token = await SecureStore.getItemAsync("user_token");
       }
+    } catch (e) {
+      console.error("토큰 로드 실패", e);
+    }
+    const privateApi = api;
 
-      const mappedData = dataList.map((item: any) => ({
-        id: item.scheduleId || item.userId || Math.random(),
-        date: item.date,
-        startTime: item.time?.split("~")[0] || "09:00",
-        endTime: item.time?.split("~")[1] || "18:00",
-        registeredTime: item.time || "",
-        wifiTime: "",
-        isPlanned: new Date(item.date) > new Date(today),
-        storeName: item.name || "매장 정보 없음",
-        breakTime: "30",
-      }));
-      setWorkHistory(mappedData);
-    } catch (error) {
-      console.error("조회 실패:", error);
-    } finally {
-      setLoading(false);
+    // 💡 포인트: 새 인스턴스를 만들지 않고, 기존 api 설정에 토큰만 추가합니다.
+    if (token) {
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    } else {
+      delete api.defaults.headers.common["Authorization"];
+    }
+
+    return api;
+  };
+
+  const loadUserData = async () => {
+    try {
+      const storedName = await AsyncStorage.getItem("userName");
+      setUserName(storedName || "사용자");
+    } catch (e) {
+      console.error("이름 로드 실패", e);
     }
   };
 
-  useEffect(() => {
-    fetchMonthlySchedule(selectedDate);
-  }, [selectedDate.split("-")[1]]);
+  const fetchMonthlySchedule = useCallback(
+    async (date: string) => {
+      // 1. 가드 로직: storeId가 없거나 0이면 서버 에러가 날 확률이 높으므로 호출하지 않음
+      if (!storeId || Number(storeId) === 0) {
+        console.warn("유효하지 않은 storeId로 조회를 시도했습니다:", storeId);
+        return;
+      }
 
-  // --- API 2: 근무 스케줄 등록 ---
+      try {
+        setLoading(true);
+        const privateApi = await getPrivateApi();
+        const [year, month] = date.split("-");
+
+        // 2. 파라미터 구성 (month: "01" 형식 적용)
+        const response = await privateApi.get(`/api/v1/schedules/monthly`, {
+          params: {
+            storeId: Number(storeId),
+            year: year,
+            month: month.padStart(2, "0"),
+          },
+        });
+
+        // 3. 데이터 매핑
+        const dataList = response.data.data || response.data || [];
+
+        // 서버 응답이 배열이 아닐 경우를 대비한 안전장치
+        if (!Array.isArray(dataList)) {
+          console.error("서버 응답 형식이 배열이 아닙니다:", dataList);
+          setWorkHistory([]);
+          return;
+        }
+
+        const mappedData = dataList.map((item: any, index: number) => ({
+          id: item.scheduleId ? `schedule-${item.scheduleId}` : `temp-${index}`,
+          date: item.date,
+          startTime: item.time?.split("~")[0] || "09:00",
+          endTime: item.time?.split("~")[1] || "18:00",
+          registeredTime: item.time || "",
+          wifiTime: "",
+          isPlanned: new Date(item.date) > new Date(today),
+          storeName: item.name || "매장 정보 없음",
+          breakTime: item.breakTime?.toString() || "30",
+        }));
+
+        setWorkHistory(mappedData);
+      } catch (error: any) {
+        // 4. 에러 로그 보강: 500 에러 시 서버가 보낸 메시지를 출력해야 원인 파악이 쉬움
+        console.error(
+          "조회 실패 상세:",
+          error.response?.status,
+          error.response?.data, // 서버가 보낸 구체적인 에러 메시지 확인용
+        );
+        setWorkHistory([]); // 에러 시 기존 목록 초기화
+      } finally {
+        setLoading(false);
+      }
+    },
+    [storeId],
+  ); // storeId가 변경될 때 함수가 갱신되도록 의존성 추가
+
+  useEffect(() => {
+    loadUserData();
+    fetchMonthlySchedule(selectedDate);
+  }, [selectedDate.split("-")[1], fetchMonthlySchedule]);
+
   const handleSave = async () => {
     if (!startTime || !endTime) {
       Alert.alert("알림", "시간을 입력해주세요.");
       return;
     }
     const payload = {
-      storeId: STORE_ID,
-      userId: USER_ID,
+      storeId: Number(storeId),
       workDate: selectedDate,
-      startTime,
-      endTime,
+      startTime: startTime,
+      endTime: endTime,
+      breakTime: Number(breakTime),
     };
     try {
       setLoading(true);
-      const response = await api.post(`/api/v1/schedules`, payload);
+      const privateApi = await getPrivateApi();
+      const response = await privateApi.post(`/api/v1/schedules`, payload);
       if (response.status === 200 || response.status === 201) {
         Alert.alert("성공", "근무 스케줄이 등록되었습니다.");
         setShowActionModal(false);
+        setStartTime("");
+        setEndTime("");
         fetchMonthlySchedule(selectedDate);
       }
     } catch (error: any) {
-      Alert.alert("오류", error.response?.data?.message || "등록 실패");
+      const serverMsg = error.response?.data?.message || "";
+      Alert.alert(
+        "등록 실패",
+        serverMsg.includes("id must not be null")
+          ? "서버에서 사용자 식별(ID)에 실패했습니다. 다시 로그인해 주세요."
+          : "이미 등록된 근무가 있거나 서버 내부 오류가 발생했습니다.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // --- API 3: 정정 요청 (수정/삭제) ---
   const handleRequestSubmit = async () => {
     if (!reason) {
       Alert.alert("알림", "사유를 입력해주세요.");
       return;
     }
     const payload = {
-      storeId: STORE_ID,
-      userId: USER_ID,
-      targetDate: selectedDate,
+      storeId: storeId,
+      targetType: category === "등록된 근무" ? "SCHEDULE" : "ATTENDANCE",
+      targetId:
+        Number(selectedWorkDetail?.id?.toString().replace(/[^0-9]/g, "")) || 0,
       requestType: requestType === "수정" ? "UPDATE" : "DELETE",
-      category: category === "등록된 근무" ? "SCHEDULE" : "RECORD",
-      requestTime: `${startTime}~${endTime}`, // 수정/삭제 모두 현재 설정된 시간을 보냄
+      afterValue: `${startTime}~${endTime}`,
+      targetDate: selectedDate,
       reason: reason,
     };
     try {
       setLoading(true);
-      const response = await api.post(`/api/v1/modifications`, payload);
+      const privateApi = await getPrivateApi();
+      const response = await privateApi.post(`/api/v1/modifications`, payload);
       if (response.status === 200 || response.status === 201) {
-        Alert.alert("성공", `${requestType} 요청을 보냈습니다.`);
+        Alert.alert("성공", "정정 요청이 접수되었습니다.");
         setRequestModalVisible(false);
         setReason("");
       }
-    } catch (error) {
-      Alert.alert("오류", "전송 실패");
+    } catch (error: any) {
+      Alert.alert(
+        "요청 실패",
+        error.response?.data?.message || "오류가 발생했습니다.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // 유틸리티
-  const formatTime = (text: string, setter: (val: string) => void) => {
+  // ✅ 실시간 입력 가시성을 위한 로직 (입력 즉시 보임)
+  const onChangeTime = (text: string, setter: (val: string) => void) => {
     const cleaned = text.replace(/[^0-9]/g, "");
-    let formatted = cleaned;
-    if (cleaned.length >= 3)
-      formatted = `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
-    setter(formatted.slice(0, 5));
-  };
-  const getBadgeInfo = (dateString: string) => {
-    const data = workHistory.find((d) => d.date === dateString);
-    if (!data) return null;
-
-    const [startH, startM] = data.startTime.split(":").map(Number);
-    const [endH, endM] = data.endTime.split(":").map(Number);
-    const totalMinutes = endH * 60 + endM - (startH * 60 + startM);
-    const actualWorkMinutes = totalMinutes - parseInt(data.breakTime || "0");
-    const h = Math.floor(actualWorkMinutes / 60);
-    const m = actualWorkMinutes % 60;
-
-    let color = "#6B4EFF"; // ✨ 보라색 (시간 일치)
-    let bgColor = "#F0EBFF";
-
-    if (data.isPlanned) {
-      color = "#4A90E2"; // ✨ 파란색 (예정 근무)
-      bgColor = "#E1F0FF";
-    } else if (data.registeredTime !== data.wifiTime && data.wifiTime !== "") {
-      color = "#FF6B6B"; // ✨ 빨간색 (시간 불일치)
-      bgColor = "#FFDADA";
+    if (cleaned.length <= 2) {
+      setter(cleaned);
+    } else {
+      setter(`${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`);
     }
-
-    return { label: `${h}h ${m > 0 ? m + "m" : ""}`, color, bgColor };
   };
 
   const selectedWorkDetail = useMemo(
@@ -211,21 +251,32 @@ const WorkerSchedule: React.FC = () => {
     setSelectedDate(currentDate.toISOString().split("T")[0]);
   };
 
+  const getBadgeInfo = (dateString: string) => {
+    const data = workHistory.find((d) => d.date === dateString);
+    if (!data) return null;
+    return { label: "근무", color: "#6B4EFF", bgColor: "#F0EBFF" };
+  };
+
   return (
     <View style={styles.container}>
       <Header notificationCount={5} />
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="always"
       >
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>근무 시간</Text>
           <View style={styles.iconRow}>
-            <TouchableOpacity onPress={() => setShowActionModal(true)}>
+            <TouchableOpacity
+              onPress={() => setShowActionModal(true)}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            >
               <Ionicons name="add-circle" size={32} color="#D1C4E9" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowRequestMenu(!showRequestMenu)}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             >
               <MaterialCommunityIcons
                 name="hands-pray"
@@ -336,7 +387,7 @@ const WorkerSchedule: React.FC = () => {
                       style={[styles.badge, { backgroundColor: badge.bgColor }]}
                     >
                       <Text style={[styles.badgeText, { color: badge.color }]}>
-                        {badge.label}
+                        ●
                       </Text>
                     </View>
                   )}
@@ -347,19 +398,246 @@ const WorkerSchedule: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* 1. 근무 상세 모달 */}
-      <Modal visible={showDetailModal} transparent animationType="slide">
+      {/* 근무 등록 모달 */}
+      <Modal
+        visible={showActionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowActionModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>근무 등록</Text>
+                  <View style={styles.userTag}>
+                    <Text style={styles.userTagText}>{userName}</Text>
+                  </View>
+                </View>
+                <View style={styles.inputField}>
+                  <Text style={styles.inputLabel}>날짜</Text>
+                  <TouchableOpacity
+                    style={styles.dateInputBox}
+                    onPress={() => setShowCalendar(true)}
+                  >
+                    <Text>{selectedDate}</Text>
+                    <Ionicons name="calendar-outline" size={20} color="#AAA" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.inputField}>
+                  <Text style={styles.inputLabel}>근무 시간</Text>
+                  <View style={styles.timeInputRow}>
+                    <View style={styles.inputItem}>
+                      <TextInput
+                        style={styles.timeInput}
+                        value={startTime}
+                        onChangeText={(t) => onChangeTime(t, setStartTime)}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                        placeholder="00:00"
+                        returnKeyType="done"
+                      />
+                    </View>
+                    <Text style={{ fontSize: 20 }}>~</Text>
+                    <View style={styles.inputItem}>
+                      <TextInput
+                        style={styles.timeInput}
+                        value={endTime}
+                        onChangeText={(t) => onChangeTime(t, setEndTime)}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                        placeholder="00:00"
+                        returnKeyType="done"
+                      />
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.inputField}>
+                  <Text style={styles.inputLabel}>휴게 시간 (분)</Text>
+                  <View style={styles.breakTimeGroup}>
+                    {["30", "60"].map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[
+                          styles.breakTimeBtn,
+                          breakTime === t && styles.breakTimeBtnActive,
+                        ]}
+                        onPress={() => setBreakTime(t)}
+                      >
+                        <Text style={breakTime === t ? { color: "#fff" } : {}}>
+                          {t}분
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.modalBtnGroup}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setShowActionModal(false)}
+                  >
+                    <Text style={styles.cancelBtnText}>취소</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.submitBtn}
+                    onPress={handleSave}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.submitBtnText}>저장</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 정정 요청 모달 */}
+      <Modal
+        visible={requestModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRequestModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{requestType} 요청하기</Text>
+                <View style={styles.userTag}>
+                  <Text style={styles.userTagText}>{userName}</Text>
+                </View>
+              </View>
+              <View style={styles.categoryGroup}>
+                {["등록된 근무", "기록된 근무"].map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[
+                      styles.categoryBtn,
+                      category === item && styles.categoryBtnActive,
+                    ]}
+                    onPress={() => setCategory(item as any)}
+                  >
+                    <Text style={category === item ? { color: "#fff" } : {}}>
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.inputField}>
+                <Text style={styles.inputLabel}>날짜</Text>
+                <TouchableOpacity
+                  style={styles.dateInputBox}
+                  onPress={() => setShowCalendar(true)}
+                >
+                  <Text>{selectedDate}</Text>
+                  <Ionicons name="calendar-outline" size={20} color="#AAA" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputField}>
+                <Text style={styles.inputLabel}>
+                  {requestType === "수정" ? "변경 시간" : "삭제 대상 시간"}
+                </Text>
+                <View style={styles.timeInputRow}>
+                  <View style={styles.inputItem}>
+                    <TextInput
+                      style={[
+                        styles.timeInput,
+                        requestType === "삭제" && {
+                          backgroundColor: "#F5F5F5",
+                        },
+                      ]}
+                      value={startTime}
+                      onChangeText={(t) => onChangeTime(t, setStartTime)}
+                      keyboardType="number-pad"
+                      maxLength={5}
+                      placeholder="00:00"
+                      editable={requestType === "수정"}
+                    />
+                  </View>
+                  <Text style={{ fontSize: 20 }}>~</Text>
+                  <View style={styles.inputItem}>
+                    <TextInput
+                      style={[
+                        styles.timeInput,
+                        requestType === "삭제" && {
+                          backgroundColor: "#F5F5F5",
+                        },
+                      ]}
+                      value={endTime}
+                      onChangeText={(t) => onChangeTime(t, setEndTime)}
+                      keyboardType="number-pad"
+                      maxLength={5}
+                      placeholder="00:00"
+                      editable={requestType === "수정"}
+                    />
+                  </View>
+                </View>
+              </View>
+              <View style={styles.inputField}>
+                <Text style={styles.inputLabel}>사유</Text>
+                <TextInput
+                  style={styles.reasonInput}
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder="사유를 입력해주세요"
+                  multiline
+                />
+              </View>
+              <View style={styles.modalBtnGroup}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setRequestModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.submitBtn}
+                  onPress={handleRequestSubmit}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>요청 보내기</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* 상세 모달 */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.detailHeader}>
-              <TouchableOpacity onPress={() => shiftDate(-1)}>
+              <TouchableOpacity
+                onPress={() => shiftDate(-1)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons name="chevron-back" size={24} color="#333" />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>
                 {selectedDate.split("-")[1]}월 {selectedDate.split("-")[2]}일
                 근무
               </Text>
-              <TouchableOpacity onPress={() => shiftDate(1)}>
+              <TouchableOpacity
+                onPress={() => shiftDate(1)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons name="chevron-forward" size={24} color="#333" />
               </TouchableOpacity>
             </View>
@@ -396,195 +674,6 @@ const WorkerSchedule: React.FC = () => {
                 }}
               >
                 <Text style={styles.submitBtnText}>근무 추가</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 2. 근무 등록 모달 */}
-      <Modal visible={showActionModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>근무 등록</Text>
-              <View style={styles.userTag}>
-                <Text style={styles.userTagText}>JUN</Text>
-              </View>
-            </View>
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>날짜</Text>
-              <TouchableOpacity
-                style={styles.dateInputBox}
-                onPress={() => setShowCalendar(true)}
-              >
-                <Text>{selectedDate}</Text>
-                <Ionicons name="calendar-outline" size={20} color="#AAA" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>근무 시간</Text>
-              <View style={styles.timeInputRow}>
-                <View style={styles.inputItem}>
-                  <TextInput
-                    style={styles.timeInput}
-                    value={startTime}
-                    onChangeText={(t) => formatTime(t, setStartTime)}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="09:00"
-                  />
-                </View>
-                <Text style={{ fontSize: 20 }}>~</Text>
-                <View style={styles.inputItem}>
-                  <TextInput
-                    style={styles.timeInput}
-                    value={endTime}
-                    onChangeText={(t) => formatTime(t, setEndTime)}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="18:00"
-                  />
-                </View>
-              </View>
-            </View>
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>휴게 시간 (분)</Text>
-              <View style={styles.breakTimeGroup}>
-                {["30", "60"].map((t) => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[
-                      styles.breakTimeBtn,
-                      breakTime === t && styles.breakTimeBtnActive,
-                    ]}
-                    onPress={() => setBreakTime(t)}
-                  >
-                    <Text>{t}분</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-            <View style={styles.modalBtnGroup}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setShowActionModal(false)}
-              >
-                <Text style={styles.cancelBtnText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.submitBtn} onPress={handleSave}>
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>저장</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 3. 수정/삭제 요청 모달 (통합) */}
-      <Modal visible={requestModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{requestType} 요청하기</Text>
-              <View style={styles.userTag}>
-                <Text style={styles.userTagText}>JUN</Text>
-              </View>
-            </View>
-            <View style={styles.categoryGroup}>
-              {["등록된 근무", "기록된 근무"].map((item) => (
-                <TouchableOpacity
-                  key={item}
-                  style={[
-                    styles.categoryBtn,
-                    category === item && styles.categoryBtnActive,
-                  ]}
-                  onPress={() => setCategory(item as any)}
-                >
-                  <Text style={category === item ? { color: "#fff" } : {}}>
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>날짜</Text>
-              <TouchableOpacity
-                style={styles.dateInputBox}
-                onPress={() => setShowCalendar(true)}
-              >
-                <Text>{selectedDate}</Text>
-                <Ionicons name="calendar-outline" size={20} color="#AAA" />
-              </TouchableOpacity>
-            </View>
-
-            {/* ✨ 수정/삭제 공통으로 시간 섹션 표시 */}
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>
-                {requestType === "수정" ? "변경 시간" : "삭제 대상 시간"}
-              </Text>
-              <View style={styles.timeInputRow}>
-                <View style={styles.inputItem}>
-                  <TextInput
-                    style={[
-                      styles.timeInput,
-                      requestType === "삭제" && { backgroundColor: "#F5F5F5" },
-                    ]}
-                    value={startTime}
-                    onChangeText={(t) => formatTime(t, setStartTime)}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="09:00"
-                    editable={requestType === "수정"} // 삭제일 때는 읽기 전용
-                  />
-                </View>
-                <Text style={{ fontSize: 20 }}>~</Text>
-                <View style={styles.inputItem}>
-                  <TextInput
-                    style={[
-                      styles.timeInput,
-                      requestType === "삭제" && { backgroundColor: "#F5F5F5" },
-                    ]}
-                    value={endTime}
-                    onChangeText={(t) => formatTime(t, setEndTime)}
-                    keyboardType="number-pad"
-                    maxLength={5}
-                    placeholder="18:00"
-                    editable={requestType === "수정"} // 삭제일 때는 읽기 전용
-                  />
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.inputField}>
-              <Text style={styles.inputLabel}>사유</Text>
-              <TextInput
-                style={styles.reasonInput}
-                value={reason}
-                onChangeText={setReason}
-                placeholder="사유를 입력해주세요"
-                multiline
-              />
-            </View>
-            <View style={styles.modalBtnGroup}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setRequestModalVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitBtn}
-                onPress={handleRequestSubmit}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>요청 보내기</Text>
-                )}
               </TouchableOpacity>
             </View>
           </View>

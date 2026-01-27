@@ -18,16 +18,14 @@ export default function SignUpScreen() {
   const router = useRouter();
 
   // 입력값 상태 관리
-  const [id, setId] = useState("");
+  const [username, SetUsername] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-
-  // 서버 Enum 기준에 맞춰 "OWNER" | "WORKER"로 변경
   const [role, setRole] = useState<"OWNER" | "WORKER" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 웹/모바일 통합 알림 함수
+  // 통합 알림 함수
   const showAlert = (message: string) => {
     if (Platform.OS === "web") {
       alert(message);
@@ -40,23 +38,17 @@ export default function SignUpScreen() {
     Keyboard.dismiss();
 
     // --- 유효성 검사 ---
-    if (id.trim() === "") {
-      showAlert("아이디를 입력해주세요.");
-      return;
-    }
-    if (name.trim() === "") {
-      showAlert("이름을 입력해주세요.");
-      return;
-    }
-    if (password.trim() === "") {
-      showAlert("비밀번호를 입력해주세요.");
+    if (!username.trim() || !name.trim() || !password.trim()) {
+      showAlert("모든 정보를 입력해주세요.");
       return;
     }
 
     const passwordRegex =
       /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-      showAlert("비밀번호는 영문, 숫자, 특수문자를 포함해야 합니다.");
+      showAlert(
+        "비밀번호는 영문, 숫자, 특수문자를 포함해 8자 이상이어야 합니다.",
+      );
       return;
     }
 
@@ -67,37 +59,35 @@ export default function SignUpScreen() {
     }
 
     if (!role) {
-      showAlert("사장님 또는 아르바이트생을 선택해주세요.");
+      showAlert("역할을 선택해주세요.");
       return;
     }
 
-    // --- API 호출 ---
     try {
       setIsLoading(true);
 
+      // 1. 회원가입 API 호출
       const response = await api.post("/api/v1/users/join", {
-        username: id,
+        username: username,
         password: password,
         name: name,
         email: email,
-        role: role, // ✅ "OWNER" 또는 "WORKER"가 그대로 전송됨
+        role: role,
       });
 
+      // 2. 가입 성공 시 처리
       if (response.status === 200 || response.status === 201) {
-        showAlert("회원가입이 완료되었습니다!");
+        showAlert("회원가입이 완료되었습니다! 로그인 해주세요.");
 
-        // 역할에 따른 페이지 이동
-        if (role === "OWNER") {
-          router.replace("/(tabs)/boss/Registration");
-        } else {
-          router.replace("/(tabs)/staff/Registration");
-        }
+        // 자동 로그인 대신 로그인 페이지로 이동
+        router.replace("/(auth)/Login");
       }
     } catch (error: any) {
-      console.error("회원가입 에러:", error.response?.data || error.message);
-      const errorMsg =
-        error.response?.data?.message || "서버 연결에 실패했습니다.";
-      showAlert(errorMsg);
+      console.error("회원가입 에러:", error.response?.data);
+      const serverMessage =
+        error.response?.data?.message ||
+        "이미 가입된 정보이거나 서버 오류입니다.";
+      showAlert(serverMessage);
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +96,6 @@ export default function SignUpScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.innerContainer}>
-        {/* 로고 영역 */}
         <View style={styles.logoContainer}>
           <Image
             source={require("@/assets/images/logo.png")}
@@ -114,19 +103,17 @@ export default function SignUpScreen() {
           />
         </View>
 
-        {/* 입력 영역 */}
         <View style={styles.inputContainer}>
-          <CustomInput placeholder="아이디" value={id} onChangeText={setId} />
           <CustomInput
-            placeholder="이름"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="none"
+            placeholder="아이디"
+            value={username}
+            onChangeText={SetUsername}
           />
+          <CustomInput placeholder="이름" value={name} onChangeText={setName} />
           <CustomInput
             placeholder="비밀번호"
-            secureTextEntry
             value={password}
+            secureTextEntry
             onChangeText={setPassword}
           />
           <CustomInput
@@ -137,7 +124,6 @@ export default function SignUpScreen() {
           />
         </View>
 
-        {/* 역할 선택 영역 */}
         <View style={styles.roleSelectionContainer}>
           <TouchableOpacity
             style={[
@@ -174,14 +160,11 @@ export default function SignUpScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 가입 버튼 */}
         <View style={styles.submitButtonContainer}>
-          <TouchableOpacity disabled={isLoading} onPress={handleSignUp}>
-            <CustomButton
-              title={isLoading ? "처리 중..." : "가입하기"}
-              onPress={handleSignUp}
-            />
-          </TouchableOpacity>
+          <CustomButton
+            title={isLoading ? "처리 중..." : "가입하기"}
+            onPress={handleSignUp}
+          />
         </View>
       </View>
     </View>
