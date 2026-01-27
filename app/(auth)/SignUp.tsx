@@ -1,132 +1,188 @@
-import { CustomButton } from '@/components/common/CustomButton';
-import { CustomInput } from '@/components/common/CustomInput';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Image, Keyboard, Platform, Text, TouchableOpacity, View } from 'react-native';
-import { styles } from '../../styles/auth/SignUp';
+import { CustomButton } from "@/components/common/CustomButton";
+import { CustomInput } from "@/components/common/CustomInput";
+import api from "@/constants/api";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  Alert,
+  Image,
+  Keyboard,
+  Platform,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { styles } from "../../styles/auth/SignUp";
 
 export default function SignUpScreen() {
   const router = useRouter();
-  
+
   // 입력값 상태 관리
-  const [id, setId] = useState('');
-  const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'boss' | 'staff' | null>(null);
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  
+  const [id, setId] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  // ✅ 서버 Enum 기준에 맞춰 "OWNER" | "WORKER"로 변경
+  const [role, setRole] = useState<"OWNER" | "WORKER" | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   // 웹/모바일 통합 알림 함수
   const showAlert = (message: string) => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       alert(message);
     } else {
-      Alert.alert('알림', message);
+      Alert.alert("알림", message);
     }
   };
 
-  const handleSignUp = () => {
-    Keyboard.dismiss(); // 버튼 누르면 키보드 닫기
+  const handleSignUp = async () => {
+    Keyboard.dismiss();
 
-    // 1. 아이디 입력 여부 확인
+    // --- 유효성 검사 ---
     if (id.trim() === "") {
       showAlert("아이디를 입력해주세요.");
       return;
     }
-
-    // 2. 비밀번호 검사
+    if (name.trim() === "") {
+      showAlert("이름을 입력해주세요.");
+      return;
+    }
     if (password.trim() === "") {
       showAlert("비밀번호를 입력해주세요.");
       return;
     }
-    
-    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/;
+
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-      showAlert("비밀번호는 영문, 숫자, 특수문자만 사용 가능합니다.");
-      return;
-    }
-    
-    if (password.length < 8) {
-      showAlert("비밀번호는 최소 8자 이상이어야 합니다.");
+      showAlert("비밀번호는 영문, 숫자, 특수문자를 포함해야 합니다.");
       return;
     }
 
-    // 3. ✨ 이메일 유효성 검사 (정규표현식 수정)
-    // 네이버뿐만 아니라 모든 일반적인 이메일 형식을 허용합니다.
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    
-    if (email.trim() === "") {
-      showAlert("이메일 주소를 입력해주세요.");
-      return;
-    }
-    
     if (!emailRegex.test(email)) {
-      showAlert("올바른 이메일 형식이 아닙니다. (예: user@example.com)");
+      showAlert("올바른 이메일 형식이 아닙니다.");
       return;
     }
 
-    // 4. 역할 선택 확인
     if (!role) {
       showAlert("사장님 또는 아르바이트생을 선택해주세요.");
       return;
     }
-    
-    // 모든 통과 시 가입 성공 로직
-    console.log(`${role === 'boss' ? '사장님' : '아르바이트생'} 가입 정보:`, { id, email });
-    showAlert("회원가입이 완료되었습니다!");
-    router.replace('/(auth)/Login'); 
+
+    // --- API 호출 ---
+    try {
+      setIsLoading(true);
+
+      const response = await api.post("/api/v1/users/join", {
+        username: id,
+        password: password,
+        name: name,
+        email: email,
+        role: role, // ✅ "OWNER" 또는 "WORKER"가 그대로 전송됨
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        showAlert("회원가입이 완료되었습니다!");
+
+        // 역할에 따른 페이지 이동
+        if (role === "OWNER") {
+          router.replace("/(tabs)/boss/Registration");
+        } else {
+          router.replace("/(tabs)/staff/Registration");
+        }
+      }
+    } catch (error: any) {
+      console.error("회원가입 에러:", error.response?.data || error.message);
+      const errorMsg =
+        error.response?.data?.message || "서버 연결에 실패했습니다.";
+      showAlert(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.innerContainer}>
-        
         {/* 로고 영역 */}
         <View style={styles.logoContainer}>
-          <Image 
-            source={require('@/assets/images/logo.png')} 
-            style={styles.logoImage} 
+          <Image
+            source={require("@/assets/images/logo.png")}
+            style={styles.logoImage}
           />
         </View>
 
         {/* 입력 영역 */}
         <View style={styles.inputContainer}>
           <CustomInput placeholder="아이디" value={id} onChangeText={setId} />
-          <CustomInput 
-            placeholder="비밀번호" 
-            secureTextEntry 
-            value={password} 
-            onChangeText={setPassword} 
+          <CustomInput
+            placeholder="이름"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="none"
           />
-          <CustomInput 
-            placeholder="이메일" 
-            value={email} 
-            onChangeText={setEmail} 
-            keyboardType="email-address" 
+          <CustomInput
+            placeholder="비밀번호"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+          <CustomInput
+            placeholder="이메일"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
           />
         </View>
 
         {/* 역할 선택 영역 */}
         <View style={styles.roleSelectionContainer}>
-          <TouchableOpacity 
-            style={[styles.roleButton, role === 'boss' && styles.selectedRoleButton]}
-            onPress={() => setRole('boss')}
+          <TouchableOpacity
+            style={[
+              styles.roleButton,
+              role === "OWNER" && styles.selectedRoleButton,
+            ]}
+            onPress={() => setRole("OWNER")}
           >
-            <Text style={[styles.roleButtonText, role === 'boss' && styles.selectedRoleButtonText]}>사장님</Text>
+            <Text
+              style={[
+                styles.roleButtonText,
+                role === "OWNER" && styles.selectedRoleButtonText,
+              ]}
+            >
+              사장님
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.roleButton, role === 'staff' && styles.selectedRoleButton]}
-            onPress={() => setRole('staff')}
+          <TouchableOpacity
+            style={[
+              styles.roleButton,
+              role === "WORKER" && styles.selectedRoleButton,
+            ]}
+            onPress={() => setRole("WORKER")}
           >
-            <Text style={[styles.roleButtonText, role === 'staff' && styles.selectedRoleButtonText]}>아르바이트생</Text>
+            <Text
+              style={[
+                styles.roleButtonText,
+                role === "WORKER" && styles.selectedRoleButtonText,
+              ]}
+            >
+              아르바이트생
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* 가입 버튼 */}
         <View style={styles.submitButtonContainer}>
-          <CustomButton title="가입하기" onPress={handleSignUp} />
+          <TouchableOpacity disabled={isLoading} onPress={handleSignUp}>
+            <CustomButton
+              title={isLoading ? "처리 중..." : "가입하기"}
+              onPress={handleSignUp}
+            />
+          </TouchableOpacity>
         </View>
-
       </View>
     </View>
   );

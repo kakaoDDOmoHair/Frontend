@@ -1,3 +1,4 @@
+// app/(tabs)/staff/Manual.tsx
 import React, { useState } from 'react';
 import { ManualItem } from '../../../components/manual/StaffData';
 import { StaffManual } from '../../../components/manual/StaffManual';

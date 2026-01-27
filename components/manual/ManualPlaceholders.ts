@@ -1,5 +1,4 @@
 // components/manual/ManualPlaceholders.ts
-
 export const STEP_PLACEHOLDERS = [
   { 
     title: "오픈 전 점검 (예: 전등 및 에어컨 확인)", 

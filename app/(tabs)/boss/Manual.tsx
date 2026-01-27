@@ -1,3 +1,4 @@
+// app/(tabs)/boss/Manual.tsx
 import React, { useState } from 'react';
 import { BOSS_MANUAL_LIST, ManualItem } from '../../../components/manual/BossData';
 import { BossManual } from '../../../components/manual/BossManual';
