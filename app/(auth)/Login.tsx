@@ -42,7 +42,7 @@ export default function LoginScreen() {
     }
   };
 
-  // axios 또는 fetch를 사용하기 위해 함수 앞에 async를 붙입니다.
+  // axios 또는 fetch를 사용하기 위해 함수 앞에 async를 붙임
   const handleLogin = async () => {
     if (!username.trim()) {
       showAlert("아이디를 입력해주세요.");
@@ -55,7 +55,7 @@ export default function LoginScreen() {
       return;
     }
 
-    // 3. 비밀번호 상세 검사 (보안 정책)
+    // 3. 비밀번호 상세 검사 시도
     // 최소 8자 이상
     if (password.length < 8) {
       showAlert("비밀번호는 최소 8자 이상이어야 합니다.");
